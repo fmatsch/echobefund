@@ -1,0 +1,461 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Echobefund mit EOSWIN verbinden – Schritt-für-Schritt-Anleitung</title>
+  <meta name="description" content="Ausführliche Anleitung für Praxen: Echobefund einrichten und über GDT mit EOSWIN verbinden – Patientendaten übernehmen und Befunde zurück in die Kartei senden.">
+  <link rel="icon" href="../icon.png">
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1d2733; --muted: #5c6878; --line: #dde2e9;
+      --accent: #b3263a; --accent-soft: #fbe9ec; --blue: #2f6fb3; --blue-soft: #e6f0fa;
+      --ok: #1f7a4d; --ok-soft: #e4f4ec; --warn: #8a5a00; --warn-soft: #fff4dc;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #11161d; --panel: #19202a; --text: #e6eaf0; --muted: #9aa5b4; --line: #2a3340;
+        --accent-soft: #3a1c23; --blue-soft: #16283d; --ok-soft: #14301f; --warn: #f0c060; --warn-soft: #3a2e12; }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 17px/1.65 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--accent); }
+    .wrap { max-width: 860px; margin: 0 auto; padding: 0 22px; }
+    header { padding: 40px 0 8px; }
+    .crumb { font-size: .9rem; color: var(--muted); }
+    h1 { font-size: clamp(1.8rem, 4.5vw, 2.5rem); line-height: 1.2; margin: 10px 0 12px; letter-spacing: -.01em; }
+    .lead { font-size: 1.12rem; color: var(--muted); margin: 0 0 18px; }
+    nav.toc { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 22px; margin: 22px 0; }
+    nav.toc strong { display: block; margin-bottom: 6px; }
+    nav.toc ol { margin: 0; padding-left: 22px; }
+    h2 { font-size: 1.55rem; margin: 52px 0 12px; padding-top: 12px; border-top: 1px solid var(--line); scroll-margin-top: 16px; }
+    h2 .part { display: inline-block; font-size: .8rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--accent); background: var(--accent-soft); padding: 2px 10px; border-radius: 20px; vertical-align: middle; margin-right: 8px; }
+    h3 { font-size: 1.15rem; margin: 28px 0 8px; }
+    ol.steps { list-style: none; counter-reset: s; padding: 0; margin: 14px 0; }
+    ol.steps > li { counter-increment: s; position: relative; padding: 12px 14px 12px 58px; margin-bottom: 10px; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+    ol.steps > li::before { content: counter(s); position: absolute; left: 14px; top: 12px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent); color: #fff; font-weight: 700; display: grid; place-items: center; font-size: .95rem; }
+    kbd, .ui { font-family: inherit; font-size: .92em; font-weight: 600; background: var(--blue-soft); color: var(--blue); border-radius: 5px; padding: 1px 7px; white-space: nowrap; }
+    @media (prefers-color-scheme: dark) { kbd, .ui { color: #8cbcf0; } }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; background: var(--accent-soft); padding: 1px 6px; border-radius: 4px; word-break: break-all; }
+    .box { border-radius: 12px; padding: 14px 18px; margin: 16px 0; border-left: 5px solid; }
+    .box p { margin: 6px 0; }
+    .box.tip { background: var(--ok-soft); border-color: var(--ok); }
+    .box.warn { background: var(--warn-soft); border-color: var(--warn); }
+    .box.info { background: var(--blue-soft); border-color: var(--blue); }
+    .box .title { font-weight: 700; }
+    figure { margin: 16px 0 22px; }
+    figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 26px rgba(20, 28, 40, .10); background: #fff; }
+    figure.narrow img { max-width: 380px; width: 100%; }
+    figcaption { font-size: .9rem; color: var(--muted); margin-top: 8px; }
+    .table-wrap { overflow-x: auto; margin: 14px 0; }
+    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; font-size: .95rem; }
+    th, td { text-align: left; padding: 10px 12px; border-bottom: 1px solid var(--line); vertical-align: top; }
+    thead th { background: var(--accent-soft); font-size: .85rem; text-transform: uppercase; letter-spacing: .03em; }
+    td.value { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-weight: 700; white-space: nowrap; }
+    td.fill { min-width: 140px; border-left: 1px dashed var(--line); }
+    .checklist { list-style: none; padding: 0; }
+    .checklist li { padding-left: 32px; position: relative; margin: 8px 0; }
+    .checklist li::before { content: "☐"; position: absolute; left: 4px; top: -1px; font-size: 1.2rem; color: var(--accent); }
+    details { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 12px 18px; margin: 10px 0; }
+    details summary { cursor: pointer; font-weight: 600; }
+    details[open] summary { margin-bottom: 8px; }
+    .mail { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 18px; white-space: pre-wrap; font-size: .95rem; }
+    .actions { display: flex; gap: 10px; flex-wrap: wrap; margin: 10px 0 0; }
+    button { font: inherit; font-size: .95rem; padding: 8px 16px; border-radius: 8px; border: 1px solid var(--accent); background: var(--accent); color: #fff; cursor: pointer; }
+    button.secondary { background: var(--panel); color: var(--text); border-color: var(--line); }
+    .flow { display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: center; margin: 18px 0; text-align: center; }
+    .flow .node { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px 10px; }
+    .flow .node strong { display: block; }
+    .flow .node span { font-size: .85rem; color: var(--muted); }
+    .flow .arrow { font-size: 1.6rem; color: var(--accent); }
+    @media (max-width: 640px) { .flow { grid-template-columns: 1fr; } .flow .arrow { transform: rotate(90deg); } }
+    footer { margin: 60px 0 40px; padding-top: 18px; border-top: 1px solid var(--line); color: var(--muted); font-size: .9rem; }
+    @media print {
+      body { background: #fff; color: #000; font-size: 11pt; }
+      .no-print, nav.toc { display: none !important; }
+      h2 { page-break-before: auto; break-after: avoid; }
+      ol.steps > li, .box, figure, table, details { break-inside: avoid; }
+      details { border: 0; padding: 0; }
+      details > * { display: block !important; }
+      figure img { box-shadow: none; max-height: 9cm; width: auto; }
+      a { color: #000; text-decoration: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="crumb"><a href="../">Echobefund</a> › Anleitung EOSWIN</div>
+      <h1>Echobefund mit EOSWIN verbinden</h1>
+      <p class="lead">Schritt-für-Schritt-Anleitung für die Praxis. Sie brauchen keine Computer-Vorkenntnisse – nehmen Sie sich etwa 30 bis 45 Minuten Zeit und arbeiten Sie die Teile der Reihe nach durch.</p>
+      <div class="actions no-print">
+        <button onclick="window.print()">Anleitung drucken</button>
+        <button class="secondary" onclick="document.getElementById('zettel').scrollIntoView({behavior:'smooth'})">Zum Werte-Zettel</button>
+      </div>
+    </header>
+
+    <nav class="toc">
+      <strong>Inhalt</strong>
+      <ol>
+        <li><a href="#prinzip">So funktioniert die Verbindung</a></li>
+        <li><a href="#vorbereitung">Vorbereitung &amp; Checkliste</a></li>
+        <li><a href="#teil1">Teil 1: Echobefund auf den Praxis-PC bringen</a></li>
+        <li><a href="#teil2">Teil 2: Den Austauschordner anlegen</a></li>
+        <li><a href="#teil3">Teil 3: Echobefund einstellen</a></li>
+        <li><a href="#teil4">Teil 4: EOSWIN einstellen</a></li>
+        <li><a href="#teil5">Teil 5: Erster Test mit einem Testpatienten</a></li>
+        <li><a href="#alltag">So arbeiten Sie im Alltag</a></li>
+        <li><a href="#probleme">Wenn etwas nicht klappt</a></li>
+        <li><a href="#begriffe">Begriffe kurz erklärt</a></li>
+      </ol>
+    </nav>
+
+    <!-- ===================================================== -->
+    <h2 id="prinzip">So funktioniert die Verbindung</h2>
+    <p>EOSWIN und Echobefund „unterhalten“ sich über einen gemeinsamen Ordner auf dem Computer – ähnlich wie zwei Kollegen, die sich Zettel in ein gemeinsames Fach legen. Dieses Verfahren heißt <strong>GDT</strong> und wird seit vielen Jahren für EKG-, Lungenfunktions- und Ultraschallgeräte genutzt.</p>
+
+    <div class="flow" aria-label="Ablauf der Verbindung">
+      <div class="node"><strong>EOSWIN</strong><span>legt einen „Auftrag“ mit den Patientendaten in den Ordner und startet Echobefund</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><strong>Ordner C:\GDT</strong><span>das gemeinsame Fach</span></div>
+      <div class="arrow">→</div>
+      <div class="node"><strong>Echobefund</strong><span>liest den Patienten ein, Sie befunden, ein Klick schickt den Befund zurück</span></div>
+    </div>
+
+    <p>Danach holt EOSWIN den fertigen Befund aus demselben Ordner ab und trägt ihn in die Kartei ein. Damit das klappt, müssen <strong>beide Programme dieselben Einstellungen</strong> kennen: denselben Ordner und dieselben Dateinamen. Genau darum geht es in dieser Anleitung.</p>
+
+    <!-- ===================================================== -->
+    <h2 id="vorbereitung">Vorbereitung &amp; Checkliste</h2>
+    <p>Bitte legen Sie sich vorher Folgendes bereit:</p>
+    <ul class="checklist">
+      <li>Den <strong>Windows-Computer</strong>, an dem Sie Echos befunden und auf dem EOSWIN läuft.</li>
+      <li>Ihre <strong>EOSWIN-Zugangsdaten</strong> mit der Berechtigung, Geräte bzw. Schnittstellen einzurichten. Wenn Sie nicht sicher sind, ob Sie diese Berechtigung haben: kein Problem – dann übernimmt der MCW-Support Teil 4 (siehe <a href="#teil4">Teil 4</a>).</li>
+      <li>Diese Anleitung – am besten <strong>ausgedruckt</strong>, damit Sie Häkchen machen können.</li>
+      <li>Einen <strong>Testpatienten</strong> in EOSWIN (z. B. „Test, Echo“), damit keine echte Kartei verändert wird.</li>
+    </ul>
+
+    <div class="box info">
+      <p class="title">Mehrere Arbeitsplätze?</p>
+      <p>Wenn Echobefund an mehreren Computern genutzt werden soll, kann der Austauschordner auf dem Praxis-Server liegen. Richten Sie in dem Fall zuerst <strong>einen</strong> Arbeitsplatz komplett nach dieser Anleitung ein und bitten Sie dann Ihren IT-Betreuer, einen gemeinsamen Netzwerkordner für die übrigen Plätze festzulegen.</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <h2 id="teil1"><span class="part">Teil 1</span>Echobefund auf den Praxis-PC bringen</h2>
+    <p>Echobefund muss nicht installiert werden. Es ist eine einzelne Datei, die Sie an einen festen Platz legen.</p>
+
+    <h3>1.1 Einen Ordner für das Programm anlegen</h3>
+    <ol class="steps">
+      <li>Öffnen Sie den <strong>Datei-Explorer</strong>: Drücken Sie gleichzeitig die <kbd>Windows-Taste</kbd> und <kbd>E</kbd>.</li>
+      <li>Klicken Sie links auf <span class="ui">Dieser PC</span> und dann doppelt auf <span class="ui">Lokaler Datenträger (C:)</span>.</li>
+      <li>Klicken Sie mit der <strong>rechten</strong> Maustaste in eine freie weiße Fläche und wählen Sie <span class="ui">Neu</span> → <span class="ui">Ordner</span>.</li>
+      <li>Tippen Sie als Namen <code>Echobefund</code> ein und drücken Sie <kbd>Enter</kbd>.</li>
+    </ol>
+    <div class="box warn">
+      <p class="title">Keine Berechtigung für C:\?</p>
+      <p>Manche Praxis-PCs erlauben keine neuen Ordner direkt auf <code>C:</code>. Legen Sie den Ordner dann in <span class="ui">Dokumente</span> an und notieren Sie sich den genauen Ort auf dem <a href="#zettel">Werte-Zettel</a>.</p>
+    </div>
+
+    <h3>1.2 Echobefund herunterladen</h3>
+    <ol class="steps">
+      <li>Öffnen Sie im Internet-Browser die Seite <a href="https://fmatsch.github.io/echobefund/">fmatsch.github.io/echobefund</a>.</li>
+      <li>Klicken Sie auf <span class="ui">Download für Windows</span>. Die Datei <code>Echobefund-windows-portable.exe</code> wird heruntergeladen (ca. 100 MB, das kann ein paar Minuten dauern).</li>
+      <li>Öffnen Sie im Explorer links den Ordner <span class="ui">Downloads</span>. Klicken Sie die Datei mit der rechten Maustaste an und wählen Sie <span class="ui">Ausschneiden</span>.</li>
+      <li>Gehen Sie in den Ordner <code>C:\Echobefund</code> aus Schritt 1.1, klicken Sie mit der rechten Maustaste in die freie Fläche und wählen Sie <span class="ui">Einfügen</span>.</li>
+    </ol>
+
+    <h3>1.3 Echobefund zum ersten Mal starten</h3>
+    <ol class="steps">
+      <li>Klicken Sie doppelt auf <code>Echobefund-windows-portable.exe</code>.</li>
+      <li>Windows zeigt beim ersten Mal wahrscheinlich eine blaue Warnung <em>„Der Computer wurde durch Windows geschützt“</em>. Das ist normal bei Programmen ohne gekauftes Microsoft-Zertifikat. Klicken Sie auf <span class="ui">Weitere Informationen</span> und dann auf <span class="ui">Trotzdem ausführen</span>.</li>
+      <li>Nach 2–5 Sekunden öffnet sich Echobefund. Das kurze Warten bei jedem Start ist normal.</li>
+    </ol>
+    <div class="box tip">
+      <p class="title">Tipp: Verknüpfung auf den Desktop</p>
+      <p>Rechtsklick auf die Datei → <span class="ui">Weitere Optionen anzeigen</span> (nur Windows 11) → <span class="ui">Senden an</span> → <span class="ui">Desktop (Verknüpfung erstellen)</span>. So finden Sie Echobefund auch ohne EOSWIN schnell.</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <h2 id="teil2"><span class="part">Teil 2</span>Den Austauschordner anlegen</h2>
+    <p>Das ist das „gemeinsame Fach“, in das beide Programme ihre Dateien legen.</p>
+    <ol class="steps">
+      <li>Öffnen Sie wieder den Datei-Explorer (<kbd>Windows-Taste</kbd> + <kbd>E</kbd>) und gehen Sie zu <span class="ui">Dieser PC</span> → <span class="ui">Lokaler Datenträger (C:)</span>.</li>
+      <li>Rechtsklick in die freie Fläche → <span class="ui">Neu</span> → <span class="ui">Ordner</span>.</li>
+      <li>Name: <code>GDT</code> – dann <kbd>Enter</kbd>. Der vollständige Ort heißt jetzt <code>C:\GDT</code>.</li>
+    </ol>
+    <div class="box info">
+      <p class="title">Gibt es schon einen GDT-Ordner?</p>
+      <p>Wenn in der Praxis bereits ein EKG oder ein anderes Gerät über GDT an EOSWIN angebunden ist, gibt es oft schon so einen Ordner. Sie können ihn mitbenutzen – die Dateinamen von Echobefund sind eindeutig und kommen anderen Geräten nicht in die Quere. Tragen Sie dann einfach diesen Ordner überall statt <code>C:\GDT</code> ein.</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <h2 id="teil3"><span class="part">Teil 3</span>Echobefund einstellen</h2>
+    <ol class="steps">
+      <li>Starten Sie Echobefund und klicken Sie oben rechts auf <span class="ui">Einstellungen</span>.</li>
+      <li>Klicken Sie oben im Fenster auf den Reiter <span class="ui">Praxissoftware (GDT)</span>.</li>
+      <li>Setzen Sie ein Häkchen bei <span class="ui">GDT-Anbindung aktiv</span>.</li>
+      <li>Bei <span class="ui">Name der Praxissoftware</span> steht bereits <code>EOSWIN</code> – so lassen.</li>
+      <li>Klicken Sie bei <span class="ui">Austauschordner</span> auf <span class="ui">Wählen…</span>, gehen Sie zu <span class="ui">Dieser PC</span> → <span class="ui">C:</span>, klicken Sie <strong>einmal</strong> auf den Ordner <code>GDT</code> und dann auf <span class="ui">Ordner auswählen</span>.</li>
+      <li>Klicken Sie auf <span class="ui">Testen</span>. Es muss <strong>„✓ Ordner ist beschreibbar“</strong> erscheinen. Falls nicht, siehe <a href="#probleme">Problemlösung</a>.</li>
+      <li>Alle anderen Felder <strong>nicht verändern</strong> – die voreingestellten Werte passen zu dieser Anleitung.</li>
+      <li>Klicken Sie unten rechts auf <span class="ui">Speichern</span>.</li>
+    </ol>
+    <figure>
+      <img src="01-einstellungen-gdt.png" alt="Einstellungsfenster von Echobefund, Reiter Praxissoftware (GDT), mit aktivierter Anbindung und Austauschordner C:\GDT" loading="lazy" width="1000" height="768">
+      <figcaption>So sieht der Reiter „Praxissoftware (GDT)“ nach dem Einstellen aus. Wichtig ist die Zeile unter „Dateiendung“: Sie zeigt die beiden Dateinamen, die Sie gleich in EOSWIN brauchen.</figcaption>
+    </figure>
+    <p>Nach dem Speichern sehen Sie oben neben dem Programmnamen die Markierung <span class="ui">GDT: EOSWIN</span>. Daran erkennen Sie, dass die Verbindung eingeschaltet ist.</p>
+    <figure>
+      <img src="00-toolbar.png" alt="Obere Leiste von Echobefund mit der Markierung GDT: EOSWIN" loading="lazy" width="1400" height="44">
+      <figcaption>Die blaue Markierung „GDT: EOSWIN“ zeigt: Echobefund wartet auf Aufträge aus EOSWIN.</figcaption>
+    </figure>
+
+    <!-- ===================================================== -->
+    <h2 id="teil4"><span class="part">Teil 4</span>EOSWIN einstellen</h2>
+
+    <div class="box warn">
+      <p class="title">Bitte zuerst lesen</p>
+      <p>Die Menüs von EOSWIN sind nicht öffentlich dokumentiert, und je nach EOSWIN-Version und Lizenz sehen sie unterschiedlich aus. Wir beschreiben deshalb <strong>welche Werte</strong> EOSWIN braucht – aber nicht, in welchem Menü genau sie stehen. Sie haben zwei Möglichkeiten:</p>
+      <p><strong>Weg A (empfohlen):</strong> Den MCW-Support bitten, das Gerät einzurichten – mit der fertigen E-Mail unten. Das dauert meist nur wenige Minuten per Fernwartung.<br>
+      <strong>Weg B:</strong> Selbst einrichten, falls Sie die Geräte-Einstellungen von EOSWIN schon kennen.</p>
+    </div>
+
+    <h3 id="zettel">Der Werte-Zettel</h3>
+    <p>Diese Werte müssen in EOSWIN eingetragen werden. Die Spalte „So heißt das Feld oft“ nennt Bezeichnungen, die in Praxisprogrammen üblich sind – in EOSWIN kann es leicht anders heißen. Die rechte Spalte ist zum Abhaken beim Einrichten gedacht.</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Was</th><th>So heißt das Feld oft</th><th>Wert</th><th>✓</th></tr></thead>
+        <tbody>
+          <tr><td>Name des Geräts</td><td>Gerätebezeichnung, Gerätename</td><td class="value">Echokardiographie</td><td class="fill"></td></tr>
+          <tr><td>Art der Anbindung</td><td>Schnittstelle, Protokoll, Typ</td><td class="value">GDT 2.1 (Datei)</td><td class="fill"></td></tr>
+          <tr><td>Gemeinsamer Ordner</td><td>Austauschverzeichnis, GDT-Verzeichnis, Pfad</td><td class="value">C:\GDT</td><td class="fill"></td></tr>
+          <tr><td>Datei von EOSWIN an Echobefund</td><td>Exportdatei, Ausgabedatei, Übergabedatei</td><td class="value">ECHOEOSW.GDT</td><td class="fill"></td></tr>
+          <tr><td>Datei von Echobefund an EOSWIN</td><td>Importdatei, Eingangsdatei, Rückgabedatei</td><td class="value">EOSWECHO.GDT</td><td class="fill"></td></tr>
+          <tr><td>Programm, das gestartet wird</td><td>Programmaufruf, Programmpfad, Startdatei</td><td class="value">C:\Echobefund\Echobefund-windows-portable.exe</td><td class="fill"></td></tr>
+          <tr><td>Kennung von Echobefund</td><td>GDT-ID Empfänger, Geräte-ID (Feld 8315/8316)</td><td class="value">ECHOBEF</td><td class="fill"></td></tr>
+          <tr><td>Kennung von EOSWIN</td><td>GDT-ID Sender, eigene GDT-ID</td><td class="value">EOSWIN</td><td class="fill"></td></tr>
+          <tr><td>Auftragsart</td><td>Satzart (Feld 8000)</td><td class="value">6302</td><td class="fill"></td></tr>
+          <tr><td>Untersuchungsart</td><td>Gerätekennfeld, Test (Feld 8402)</td><td class="value">SONO00</td><td class="fill"></td></tr>
+          <tr><td>Größe &amp; Gewicht mitschicken</td><td>Größe/Gewicht übertragen (3622/3623)</td><td class="value">Ja</td><td class="fill"></td></tr>
+          <tr><td>Zeichensatz</td><td>Zeichensatz, Codepage (DOS / Windows)</td><td class="value">egal – Echobefund passt sich an</td><td class="fill"></td></tr>
+          <tr><td>Befund übernehmen als</td><td>Importart, Übernahme als Text/Karteieintrag</td><td class="value">Text in die Kartei</td><td class="fill"></td></tr>
+          <tr><td>Auf Programmende warten</td><td>Warten bis Programm beendet</td><td class="value">Nein</td><td class="fill"></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="no-print"><button class="secondary" onclick="window.print()">Werte-Zettel mit ausdrucken</button></p>
+    <div class="box info">
+      <p class="title">Anderer Ordner als C:\GDT?</p>
+      <p>Wenn Sie in Teil 1 oder 2 einen anderen Ort gewählt haben, ersetzen Sie <code>C:\GDT</code> bzw. <code>C:\Echobefund</code> auf dem Zettel durch Ihren tatsächlichen Ort. Tipp: Im Explorer oben in die Adressleiste klicken – dann wird der genaue Pfad angezeigt und kann kopiert werden.</p>
+    </div>
+
+    <h3>Weg A: Einrichtung durch den MCW-Support</h3>
+    <ol class="steps">
+      <li>Suchen Sie die Kontaktdaten des Supports auf <a href="https://mcw.at">mcw.at</a> oder in Ihren EOSWIN-Unterlagen.</li>
+      <li>Kopieren Sie die folgende Nachricht (Knopf „Text kopieren“), fügen Sie sie in eine E-Mail ein und ergänzen Sie Ihre Praxisdaten. Wenn Sie lieber anrufen: Lesen Sie einfach die Werte vom Zettel vor.</li>
+      <li>Vereinbaren Sie einen Termin. Lassen Sie Echobefund dabei geöffnet, damit direkt getestet werden kann (<a href="#teil5">Teil 5</a>).</li>
+    </ol>
+    <div class="mail" id="mailtext">Betreff: Einrichtung GDT-Gerät „Echokardiographie“ in EOSWIN
+
+Sehr geehrte Damen und Herren,
+
+wir möchten in EOSWIN ein Gerät per GDT-2.1-Dateischnittstelle anbinden: das Befundprogramm „Echobefund“ für die Echokardiographie. Bitte richten Sie das Gerät mit folgenden Werten ein bzw. teilen Sie uns mit, wo wir diese eintragen:
+
+- Gerätebezeichnung: Echokardiographie
+- Austauschverzeichnis: C:\GDT
+- Exportdatei (EOSWIN → Gerät): ECHOEOSW.GDT
+- Importdatei (Gerät → EOSWIN): EOSWECHO.GDT
+- Programmaufruf: C:\Echobefund\Echobefund-windows-portable.exe
+- GDT-ID Gerät: ECHOBEF, GDT-ID EOSWIN: EOSWIN
+- Satzart Aufruf: 6302 (Neue Untersuchung anfordern), Untersuchungsart 8402: SONO00
+- Größe (3622) und Gewicht (3623) bitte mitübertragen
+- Rückgabe: Satzart 6310, Befundtext in Feld 6228 (max. 60 Zeichen je Zeile) – bitte als Text in die Kartei übernehmen
+- Zeichensatz: beliebig (das Programm antwortet im Zeichensatz des Auftrags)
+- Nicht auf das Programmende warten; die Rückgabedatei wird geschrieben, während das Programm geöffnet bleibt.
+
+Falls EOSWIN feste Dateinamen oder Kürzel vorgibt, teilen Sie uns diese bitte mit – sie sind in Echobefund frei einstellbar.
+
+Praxis: ____________________
+Ansprechpartner/Telefon: ____________________
+EOSWIN-Kundennummer: ____________________
+
+Vielen Dank und freundliche Grüße</div>
+    <div class="actions no-print">
+      <button id="copy-mail">Text kopieren</button>
+      <span id="copy-status" class="crumb" aria-live="polite"></span>
+    </div>
+
+    <h3>Weg B: Selbst einrichten</h3>
+    <ol class="steps">
+      <li>Öffnen Sie in EOSWIN die Einstellungen bzw. Konfiguration und suchen Sie den Bereich für <strong>Geräte</strong>, <strong>Schnittstellen</strong> oder <strong>GDT</strong>. Wenn dort bereits andere Geräte (z. B. ein EKG) eingetragen sind, sind Sie richtig.</li>
+      <li>Legen Sie ein <strong>neues Gerät</strong> an. Häufig lässt sich ein vorhandener Eintrag als Vorlage kopieren – ändern Sie dann aber wirklich <strong>alle</strong> Werte laut Zettel.</li>
+      <li>Tragen Sie die Werte vom <a href="#zettel">Werte-Zettel</a> Zeile für Zeile ein und haken Sie jede Zeile ab. Gibt es ein Feld auf dem Zettel in EOSWIN nicht, ist das meist kein Problem – lassen Sie es aus.</li>
+      <li>Speichern Sie. Je nach EOSWIN-Einstellung muss das Gerät danach noch in die Kartei bzw. in eine Symbol- oder Menüleiste aufgenommen werden, damit Sie es beim Patienten aufrufen können.</li>
+      <li>Starten Sie EOSWIN einmal neu, damit die neuen Einstellungen sicher übernommen werden.</li>
+    </ol>
+    <div class="box warn">
+      <p class="title">Vorsicht bei vorhandenen Geräten</p>
+      <p>Ändern Sie keine Einträge bereits angebundener Geräte. Wenn Sie unsicher sind, nehmen Sie lieber Weg A.</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <h2 id="teil5"><span class="part">Teil 5</span>Erster Test mit einem Testpatienten</h2>
+    <p>Testen Sie die Verbindung immer zuerst mit einem Testpatienten, niemals mit einer echten Kartei.</p>
+
+    <h3>5.1 Patient von EOSWIN an Echobefund</h3>
+    <ol class="steps">
+      <li>Öffnen Sie in EOSWIN die Kartei des Testpatienten.</li>
+      <li>Rufen Sie dort das neue Gerät <strong>„Echokardiographie“</strong> auf.</li>
+      <li>Echobefund öffnet sich (oder kommt nach vorne, wenn es schon offen war). Nach wenigen Sekunden stehen Name, Vorname, Geburtsdatum, Patientennummer und Geschlecht oben im Kopfbereich. Unten erscheint kurz „Patient übernommen“.</li>
+    </ol>
+    <figure>
+      <img src="02-patient-uebernommen.png" alt="Kopfbereich von Echobefund mit übernommenen Patientendaten (Beispiel Mustermann, Maria)" loading="lazy" width="1400" height="104">
+      <figcaption>Beispiel: Die Patientendaten wurden aus der Praxissoftware übernommen (erfundene Beispieldaten).</figcaption>
+    </figure>
+    <div class="box tip">
+      <p class="title">Geschafft, wenn …</p>
+      <p>… die Daten des Testpatienten in Echobefund stehen. Falls nicht: <a href="#p-kein-patient">„Der Patient erscheint nicht“</a>.</p>
+    </div>
+
+    <h3>5.2 Befund von Echobefund an EOSWIN</h3>
+    <ol class="steps">
+      <li>Geben Sie in Echobefund ein paar beliebige Messwerte ein, z. B. <span class="ui">LVEDD</span> 48 und <span class="ui">LVEF</span> 60, und wählen Sie ein paar Beurteilungen aus.</li>
+      <li>Klicken Sie rechts auf <span class="ui">Befund erstellen</span>. Der Befundtext erscheint im Textfeld.</li>
+      <li>Klicken Sie auf den blauen Knopf <span class="ui">An EOSWIN senden</span>. Unten erscheint „Befund an EOSWIN übergeben“.</li>
+      <li>Wechseln Sie zu EOSWIN. In der Kartei des Testpatienten sollte der Befundtext jetzt als neuer Eintrag stehen. Je nach Einstellung erscheint er sofort oder erst, wenn Sie die Kartei neu öffnen bzw. den Import in EOSWIN auslösen.</li>
+    </ol>
+    <figure class="narrow">
+      <img src="04-befund-senden.png" alt="Rechter Bereich von Echobefund mit Befundtext und dem blauen Knopf An EOSWIN senden" loading="lazy" width="400" height="750">
+      <figcaption>Nach „Befund erstellen“ steht der Text im Feld. Der blaue Knopf „An EOSWIN senden“ schickt ihn in die Kartei.</figcaption>
+    </figure>
+    <div class="box tip">
+      <p class="title">Geschafft, wenn …</p>
+      <p>… der Befundtext in der Kartei des Testpatienten steht und die Umlaute (ä, ö, ü, ß) richtig aussehen. Glückwunsch – die Verbindung funktioniert! Den Testeintrag können Sie in EOSWIN wie gewohnt wieder entfernen.</p>
+    </div>
+
+    <!-- ===================================================== -->
+    <h2 id="alltag">So arbeiten Sie im Alltag</h2>
+    <ol class="steps">
+      <li>Patientenkartei in EOSWIN öffnen → Gerät <strong>„Echokardiographie“</strong> aufrufen.</li>
+      <li>In Echobefund Messwerte eingeben und beurteilen → <span class="ui">Befund erstellen</span>.</li>
+      <li>Text bei Bedarf direkt im Textfeld anpassen.</li>
+      <li><span class="ui">An EOSWIN senden</span> – fertig. Der Befund wird zusätzlich im Echobefund-Archiv gespeichert.</li>
+    </ol>
+
+    <h3>Was bedeutet der blaue Balken oben?</h3>
+    <p>Wenn Sie in Echobefund gerade etwas eingegeben, aber noch nicht gesendet oder gespeichert haben, und in EOSWIN schon den nächsten Patienten aufrufen, überschreibt Echobefund Ihre Eingaben <strong>nicht</strong> einfach. Stattdessen erscheint oben dieser Balken:</p>
+    <figure>
+      <img src="03-hinweisbalken.png" alt="Blauer Hinweisbalken: Neuer Auftrag von EOSWIN mit den Knöpfen Übernehmen und Auftrag ignorieren" loading="lazy" width="1400" height="44">
+      <figcaption>Ein neuer Auftrag ist angekommen, während noch ungespeicherte Eingaben offen sind.</figcaption>
+    </figure>
+    <ul>
+      <li><strong>Übernehmen</strong> – der neue Patient wird geladen, die bisherigen (ungespeicherten) Eingaben gehen verloren. Wenn Sie die noch brauchen: zuerst <span class="ui">An EOSWIN senden</span> oder <span class="ui">Speichern</span> klicken, dann <span class="ui">Übernehmen</span>.</li>
+      <li><strong>Auftrag ignorieren</strong> – der neue Auftrag wird verworfen. Rufen Sie das Gerät später in EOSWIN einfach noch einmal auf.</li>
+    </ul>
+
+    <h3>Einen alten Befund wiederfinden</h3>
+    <p>Klicken Sie in Echobefund oben auf <span class="ui">Archiv</span> und suchen Sie nach Name oder Patientennummer. Doppelklick öffnet den Befund. Falls EOSWIN die Funktion „Untersuchung anzeigen“ bietet, öffnet Echobefund das Archiv automatisch gefiltert auf den Patienten.</p>
+
+    <!-- ===================================================== -->
+    <h2 id="probleme">Wenn etwas nicht klappt</h2>
+    <p>Klicken Sie auf die Frage, die zu Ihrem Problem passt.</p>
+
+    <details id="p-kein-patient">
+      <summary>Echobefund öffnet sich, aber der Patient erscheint nicht</summary>
+      <ol>
+        <li>Prüfen Sie in Echobefund unter <span class="ui">Einstellungen</span> → <span class="ui">Praxissoftware (GDT)</span>, ob das Häkchen <span class="ui">GDT-Anbindung aktiv</span> gesetzt ist und der Austauschordner stimmt.</li>
+        <li>Prüfen Sie, ob in EOSWIN <strong>genau derselbe Ordner</strong> eingetragen ist – ein einziger Tippfehler reicht, damit es nicht klappt.</li>
+        <li>Rufen Sie das Gerät in EOSWIN noch einmal auf und öffnen Sie <strong>sofort</strong> im Explorer den Ordner <code>C:\GDT</code>. Liegt dort eine Datei, deren Name <strong>nicht</strong> <code>ECHOEOSW.GDT</code> ist (z. B. <code>ECHOEDV1.GDT</code>), verwendet EOSWIN andere Kürzel. Dann in Echobefund die Felder <span class="ui">Dateikürzel Echobefund</span> (die ersten 4 Buchstaben) und <span class="ui">Dateikürzel Praxissoftware</span> (die nächsten 4 Buchstaben) entsprechend ändern und speichern.</li>
+        <li>Liegt gar keine Datei im Ordner, schreibt EOSWIN den Auftrag an einen anderen Ort oder das Gerät ist noch nicht vollständig eingerichtet → Einstellungen in EOSWIN prüfen bzw. MCW-Support fragen.</li>
+      </ol>
+    </details>
+
+    <details>
+      <summary>Beim Senden erscheint „Die vorherige Befunddatei wurde von der Praxissoftware noch nicht abgeholt“</summary>
+      <p>Echobefund überschreibt zur Sicherheit nie einen Befund, den EOSWIN noch nicht eingelesen hat. Öffnen Sie in EOSWIN die Kartei bzw. lösen Sie den Import aus, damit EOSWIN die Datei <code>EOSWECHO.GDT</code> abholt – danach erneut senden.</p>
+      <p>Bleibt die Meldung dauerhaft, holt EOSWIN die Datei nicht ab. Meist stimmt dann der Name der Importdatei in EOSWIN nicht (muss <code>EOSWECHO.GDT</code> sein) oder der Ordner ist ein anderer.</p>
+    </details>
+
+    <details>
+      <summary>Umlaute sehen in der Kartei falsch aus (z. B. „M�ller“ oder „MÃ¼ller“)</summary>
+      <p>In Echobefund unter <span class="ui">Einstellungen</span> → <span class="ui">Praxissoftware (GDT)</span> das Feld <span class="ui">Zeichensatz</span> ändern: zuerst <span class="ui">ANSI CP1252 (Windows)</span> probieren, wenn das nicht hilft <span class="ui">IBM CP437 (GDT-Standard)</span>. Speichern und einen neuen Testbefund senden.</p>
+    </details>
+
+    <details>
+      <summary>Der Befund kommt an, aber abgeschnitten, ohne Zeilenumbrüche oder an der falschen Stelle</summary>
+      <p>In Echobefund unter <span class="ui">Befundtext als</span> von <span class="ui">Ergebnistext formatiert (6228)</span> auf <span class="ui">Befund (6220)</span> umstellen (oder umgekehrt) und erneut testen. Wenn Zeilen zu kurz umbrechen, kann die <span class="ui">Max. Zeilenlänge</span> erhöht werden, z. B. auf 80 – nur ändern, wenn EOSWIN das problemlos anzeigt.</p>
+    </details>
+
+    <details>
+      <summary>„Testen“ zeigt „✗“ statt „✓ Ordner ist beschreibbar“</summary>
+      <p>Der Ordner existiert nicht oder Windows erlaubt dort kein Schreiben. Legen Sie den Ordner wie in <a href="#teil2">Teil 2</a> beschrieben an und wählen Sie ihn erneut über <span class="ui">Wählen…</span> aus. Bei einem Netzwerkordner: Ist der Server erreichbar? Sonst den IT-Betreuer fragen.</p>
+    </details>
+
+    <details>
+      <summary>EOSWIN übernimmt den Befund erst, wenn ich Echobefund schließe</summary>
+      <p>Dann ist in EOSWIN „auf Programmende warten“ eingeschaltet. Entweder diese Option in EOSWIN ausschalten – oder Echobefund nach dem Senden einfach schließen. Alternativ können Sie in Echobefund <span class="ui">Nach dem Senden minimieren</span> aktivieren.</p>
+    </details>
+
+    <details>
+      <summary>Windows blockiert Echobefund oder ein Virenscanner meldet sich</summary>
+      <p>Echobefund ist nicht mit einem gekauften Microsoft-Zertifikat versehen; Windows SmartScreen und manche Virenscanner reagieren darauf vorsichtig. Bei SmartScreen: <span class="ui">Weitere Informationen</span> → <span class="ui">Trotzdem ausführen</span>. Blockiert ein Virenscanner die Datei, muss Ihr IT-Betreuer eine Ausnahme für <code>C:\Echobefund</code> einrichten.</p>
+    </details>
+
+    <details>
+      <summary>Wie installiere ich eine neue Version von Echobefund?</summary>
+      <ol>
+        <li>Echobefund schließen.</li>
+        <li>Die neue Datei wie in <a href="#teil1">Teil 1.2</a> herunterladen.</li>
+        <li>Die alte Datei in <code>C:\Echobefund</code> durch die neue ersetzen – <strong>der Dateiname muss gleich bleiben</strong>, damit EOSWIN das Programm weiterhin findet.</li>
+      </ol>
+      <p>Einstellungen, Normwerte, Textbausteine und Archiv bleiben dabei erhalten.</p>
+    </details>
+
+    <details>
+      <summary>Wo liegen meine Daten und wie sichere ich sie?</summary>
+      <p>Einstellungen und Archiv liegen im Benutzerordner unter <code>%APPDATA%\Echobefund</code>. Tippen Sie diesen Text in die Adressleiste des Explorers und drücken Sie <kbd>Enter</kbd>, um den Ordner zu öffnen. Bitten Sie Ihren IT-Betreuer, diesen Ordner in die Datensicherung der Praxis aufzunehmen. Unter <span class="ui">Einstellungen</span> → <span class="ui">Allgemein</span> können Sie das Archiv auch in einen anderen Ordner (z. B. auf dem Server) legen.</p>
+    </details>
+
+    <!-- ===================================================== -->
+    <h2 id="begriffe">Begriffe kurz erklärt</h2>
+    <div class="table-wrap">
+      <table>
+        <tbody>
+          <tr><th>GDT</th><td>„Gerätedaten-Transfer“ – ein alter, weit verbreiteter Standard, mit dem Praxisprogramme und medizinische Geräte über Dateien Daten austauschen.</td></tr>
+          <tr><th>Austauschordner</th><td>Der gemeinsame Ordner (z. B. <code>C:\GDT</code>), in den beide Programme ihre Dateien legen.</td></tr>
+          <tr><th>Auftrag</th><td>Die Datei, mit der EOSWIN den Patienten an Echobefund schickt (<code>ECHOEOSW.GDT</code>). Echobefund liest sie ein und löscht sie danach.</td></tr>
+          <tr><th>Rückgabe / Befunddatei</th><td>Die Datei, mit der Echobefund den Befund an EOSWIN schickt (<code>EOSWECHO.GDT</code>). EOSWIN liest sie ein und löscht sie danach.</td></tr>
+          <tr><th>GDT-ID / Kürzel</th><td>Kurze Namen, an denen die Programme erkennen, von wem eine Datei kommt und für wen sie bestimmt ist.</td></tr>
+          <tr><th>Satzart</th><td>Eine Nummer, die sagt, was eine Datei enthält – z. B. 6302 „neue Untersuchung“, 6310 „Ergebnis einer Untersuchung“.</td></tr>
+          <tr><th>Zeichensatz</th><td>Legt fest, wie Buchstaben wie ä, ö, ü gespeichert werden. Stimmt er nicht, sehen Umlaute falsch aus.</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="box warn">
+      <p class="title">Wichtiger Hinweis</p>
+      <p>Echobefund ist kein Medizinprodukt. Jeder erzeugte Befund muss vor dem Senden ärztlich geprüft werden. Die Screenshots in dieser Anleitung zeigen erfundene Beispieldaten.</p>
+    </div>
+
+    <footer>
+      <a href="../">Zurück zur Echobefund-Startseite</a> · <a href="https://github.com/fmatsch/echobefund/issues">Fehler oder Frage melden</a> · Stand: September 2026
+    </footer>
+  </div>
+
+  <script>
+    document.getElementById('copy-mail').addEventListener('click', async () => {
+      const status = document.getElementById('copy-status');
+      const text = document.getElementById('mailtext').innerText;
+      try {
+        await navigator.clipboard.writeText(text);
+        status.textContent = '✓ Kopiert – jetzt in eine E-Mail einfügen (Strg + V)';
+      } catch {
+        const range = document.createRange();
+        range.selectNodeContents(document.getElementById('mailtext'));
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+        status.textContent = 'Text ist markiert – jetzt Strg + C drücken';
+      }
+    });
+  </script>
+</body>
+</html>

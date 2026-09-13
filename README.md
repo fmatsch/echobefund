@@ -49,6 +49,8 @@ Die Programme sind nicht signiert:
 
 ## Anbindung an EOSWIN (GDT 2.1)
 
+📘 **Ausführliche Anleitung für die Praxis (ohne Vorkenntnisse):** https://fmatsch.github.io/echobefund/anleitung/
+
 Echobefund arbeitet als GDT-Gerät: EOSWIN legt einen Auftrag mit den Patientendaten im
 Austauschordner ab und startet Echobefund; der fertige Befund geht per Klick zurück in die Kartei.
 

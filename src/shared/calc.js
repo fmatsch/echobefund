@@ -13,6 +13,16 @@
     return 0.007184 * Math.pow(weightKg, 0.425) * Math.pow(heightCm, 0.725); // DuBois
   }
 
+  // Alter in vollen Jahren am Untersuchungstag (Datumsangaben als JJJJ-MM-TT)
+  function ageYears(birthIso, examIso) {
+    const b = String(birthIso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    const e = String(examIso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (!b || !e) return undefined;
+    let age = Number(e[1]) - Number(b[1]);
+    if (e[2] + e[3] < b[2] + b[3]) age -= 1;
+    return age >= 0 && age < 130 ? age : undefined;
+  }
+
   // ASE-Empfehlung: V. cava ≤ 21 mm + Kollaps > 50 % → 3; > 21 mm + Kollaps < 50 % → 15; sonst 8.
   function estimateRap(vciMm, collapse) {
     if (!has(vciMm) || !collapse || collapse === 'keine Angabe') return undefined;
@@ -22,7 +32,7 @@
     return 8;
   }
 
-  // values: eingegebene Messwerte (Zahlen), assess: Beurteilungen, opts: { bsaFormula }
+  // values: eingegebene Messwerte (Zahlen), assess: Beurteilungen, opts: { bsaFormula, age }
   function compute(values, assess = {}, opts = {}) {
     const v = { ...values };
     const out = {};
@@ -30,6 +40,7 @@
 
     put('bsa', bsa(v.groesse, v.gewicht, opts.bsaFormula));
     const kof = out.bsa;
+    put('age', opts.age);
 
     if (has(v.lvedv, v.lvesv) && v.lvedv > 0) put('lvefSimpson', ((v.lvedv - v.lvesv) / v.lvedv) * 100);
     if (has(v.lvedv, kof)) put('lvedvi', v.lvedv / kof);
@@ -51,6 +62,7 @@
     if (has(v.trVmax)) put('trPmax', 4 * v.trVmax * v.trVmax);
     if (has(v.spapManual)) put('spap', v.spapManual);
     else if (has(out.trPmax, out.rap)) put('spap', out.trPmax + out.rap);
+    if (has(v.tapse, out.spap) && out.spap > 0) put('tapseSpap', v.tapse / out.spap);
 
     if (has(v.avVmax)) put('avPmax', 4 * v.avVmax * v.avVmax);
     if (has(v.pvVmax)) put('pvPmax', 4 * v.pvVmax * v.pvVmax);
@@ -68,8 +80,15 @@
       }
     }
 
+    // Stressecho: Zielfrequenz 85 % von (220 − Alter)
+    if (has(opts.age)) {
+      const hfMaxPred = 220 - opts.age;
+      put('stressHfTarget', 0.85 * hfMaxPred);
+      if (has(v.stressHfMax) && hfMaxPred > 0) put('stressHfPercent', (v.stressHfMax / hfMaxPred) * 100);
+    }
+
     return { ...v, ...out };
   }
 
-  return { bsa, estimateRap, compute };
+  return { bsa, ageYears, estimateRap, compute };
 });

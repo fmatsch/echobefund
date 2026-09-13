@@ -17,6 +17,24 @@
   const STENOSIS = ['keine', ...GRADES];
   const PROSTHESES = ['St.p. biologischem Ersatz', 'St.p. mechanischem Ersatz', 'St.p. TAVI'];
 
+  // Zusatzmodule, die pro Befund ein- und ausgeblendet werden können
+  const MODULES = [
+    { id: 'pk', label: 'Pulmonalklappe' },
+    { id: 'stress', label: 'Stressecho' },
+    { id: 'tee', label: 'TEE' },
+  ];
+
+  // Gruppen im Messwert-Bereich. collapsed: anfangs zugeklappt; module: nur sichtbar, wenn Modul aktiv
+  const MEASURE_GROUPS = [
+    { id: 'basis', title: 'Körpermaße' },
+    { id: 'standard', title: 'Messwerte' },
+    { id: 'weitere', title: 'Weitere Messwerte', collapsible: true },
+    { id: 'quant', title: 'Quantifizierung (Klappen, Strain)', collapsible: true, collapsed: true },
+    { id: 'stress', title: 'Stressecho', module: 'stress' },
+    { id: 'tee', title: 'TEE', module: 'tee' },
+    { id: 'berechnet', title: 'Berechnet' },
+  ];
+
   // Messwerte. derived: wird berechnet (nicht eingebbar).
   const MEASURES = [
     // Basis
@@ -24,6 +42,7 @@
     { id: 'gewicht', group: 'basis', label: 'Gewicht', unit: 'kg', dec: 0 },
     { id: 'hf', group: 'basis', label: 'Herzfrequenz', abbr: 'HF', unit: '/min', dec: 0 },
     { id: 'bsa', group: 'basis', label: 'KOF', abbr: 'KOF', unit: 'm²', dec: 2, derived: true },
+    { id: 'age', group: 'basis', label: 'Alter', abbr: 'Alter', unit: 'Jahre', dec: 0, derived: true },
 
     // Standard
     { id: 'aoSinus', group: 'standard', label: 'Aorta Sinus', abbr: 'Ao-Sinus', unit: 'mm', dec: 0 },
@@ -59,6 +78,31 @@
     { id: 'tvPmean', group: 'weitere', label: 'TK Pmean', abbr: 'TK Pmean', unit: 'mmHg', dec: 0 },
     { id: 'pvVmax', group: 'weitere', label: 'PK Vmax', abbr: 'PK Vmax', unit: 'm/s', dec: 1 },
 
+    // Quantifizierung
+    { id: 'gls', group: 'quant', label: 'GLS (LV)', abbr: 'GLS', unit: '%', dec: 1 },
+    { id: 'rvFac', group: 'quant', label: 'RV-FAC', abbr: 'RV-FAC', unit: '%', dec: 0 },
+    { id: 'mrVc', group: 'quant', label: 'MI Vena contracta', abbr: 'VC', unit: 'mm', dec: 1 },
+    { id: 'mrEroa', group: 'quant', label: 'MI EROA', abbr: 'EROA', unit: 'cm²', dec: 2 },
+    { id: 'mrRvol', group: 'quant', label: 'MI RVol', abbr: 'RVol', unit: 'ml', dec: 0 },
+    { id: 'arVc', group: 'quant', label: 'AI Vena contracta', abbr: 'VC', unit: 'mm', dec: 1 },
+    { id: 'arPht', group: 'quant', label: 'AI PHT', abbr: 'PHT', unit: 'ms', dec: 0 },
+    { id: 'arEroa', group: 'quant', label: 'AI EROA', abbr: 'EROA', unit: 'cm²', dec: 2 },
+    { id: 'arRvol', group: 'quant', label: 'AI RVol', abbr: 'RVol', unit: 'ml', dec: 0 },
+    { id: 'trVc', group: 'quant', label: 'TI Vena contracta', abbr: 'VC', unit: 'mm', dec: 1 },
+    { id: 'trEroa', group: 'quant', label: 'TI EROA', abbr: 'EROA', unit: 'cm²', dec: 2 },
+
+    // Stressecho
+    { id: 'stressWatt', group: 'stress', label: 'Max. Belastung', abbr: 'max.', unit: 'W', dec: 0 },
+    { id: 'stressHfMax', group: 'stress', label: 'HF max.', abbr: 'HF max.', unit: '/min', dec: 0 },
+    { id: 'stressRrMax', group: 'stress', label: 'RR syst. max.', abbr: 'RR syst. max.', unit: 'mmHg', dec: 0 },
+    { id: 'stressLvefRest', group: 'stress', label: 'LVEF Ruhe', abbr: 'LVEF Ruhe', unit: '%', dec: 0 },
+    { id: 'stressLvefPeak', group: 'stress', label: 'LVEF Belastung', abbr: 'LVEF Belastung', unit: '%', dec: 0 },
+    { id: 'stressHfTarget', group: 'stress', label: 'Zielfrequenz (85 %)', abbr: 'Zielfrequenz', unit: '/min', dec: 0, derived: true },
+    { id: 'stressHfPercent', group: 'stress', label: 'Ausbelastung', abbr: 'Ausbelastung', unit: '%', dec: 0, derived: true },
+
+    // TEE
+    { id: 'laaVel', group: 'tee', label: 'LAA-Flussgeschw.', abbr: 'LAA-Fluss', unit: 'cm/s', dec: 0 },
+
     // Berechnet
     { id: 'lvefSimpson', group: 'berechnet', label: 'LVEF (aus Volumina)', abbr: 'LVEF biplan', unit: '%', dec: 0, derived: true },
     { id: 'lvedvi', group: 'berechnet', label: 'LVEDVI', abbr: 'LVEDVI', unit: 'ml/m²', dec: 0, derived: true },
@@ -71,6 +115,7 @@
     { id: 'trPmax', group: 'berechnet', label: 'TR Pmax', abbr: 'TR Pmax', unit: 'mmHg', dec: 0, derived: true },
     { id: 'rap', group: 'berechnet', label: 'RAP (geschätzt)', abbr: 'RAP', unit: 'mmHg', dec: 0, derived: true },
     { id: 'spap', group: 'berechnet', label: 'sPAP', abbr: 'sPAP', unit: 'mmHg', dec: 0, derived: true },
+    { id: 'tapseSpap', group: 'berechnet', label: 'TAPSE/sPAP', abbr: 'TAPSE/sPAP', unit: 'mm/mmHg', dec: 2, derived: true },
     { id: 'avPmax', group: 'berechnet', label: 'AK Pmax', abbr: 'AK Pmax', unit: 'mmHg', dec: 0, derived: true },
     { id: 'ava', group: 'berechnet', label: 'AÖF (Kontinuität)', abbr: 'AÖF', unit: 'cm²', dec: 2, derived: true },
     { id: 'avai', group: 'berechnet', label: 'AÖFI', abbr: 'AÖFI', unit: 'cm²/m²', dec: 2, derived: true },
@@ -81,14 +126,16 @@
     { id: 'pvPmax', group: 'berechnet', label: 'PK Pmax', abbr: 'PK Pmax', unit: 'mmHg', dec: 0, derived: true },
   ];
 
-  // Beurteilungen. type: 'radio' (Einfachauswahl) | 'multi' (Mehrfachauswahl) | 'wma'
-  // auto: id des Normwert-Eintrags (siehe defaults.js NORMS) für automatische Bewertung.
-  // measures: Messwerte, die im Text in Klammern ergänzt werden.
-  // showIf: { field, in: [...] } bzw. { field, notIn: [...] } bzw. { toggle }
+  // Beurteilungen. type: 'radio' (Einfachauswahl) | 'multi' (Mehrfachauswahl) | 'wma' | 'text'
+  // auto: Normwert-Eintrag (defaults.js NORMS) bzw. 'diastolic' (ASE/EACVI-Algorithmus)
+  // measures: Messwerte, die im Text in Klammern ergänzt werden
+  // segments: Feld mit den Segmenten für den Platzhalter {segmente}
+  // summary: false = nie in der Beurteilung; summaryAlways: auch unauffällige Werte in die Beurteilung
+  // showIf: { field, in: [...] } bzw. { field, notIn: [...] }
   const SECTIONS = [
     {
       id: 'allgemein', title: 'Allgemein', fields: [
-        { id: 'qualitaet', label: 'Bildqualität', type: 'radio', options: ['gut', 'gering eingeschränkt', 'deutlich eingeschränkt', 'schlecht', 'keine Angabe'], default: 'keine Angabe' },
+        { id: 'qualitaet', label: 'Bildqualität', type: 'radio', options: ['gut', 'gering eingeschränkt', 'deutlich eingeschränkt', 'schlecht', 'keine Angabe'], default: 'keine Angabe', summary: false },
         { id: 'rhythmus', label: 'Rhythmus', type: 'radio', options: ['Sinusrhythmus', 'Vorhofflimmern', 'Schrittmacherrhythmus', 'keine Angabe'], default: 'keine Angabe', measures: ['hf'] },
       ],
     },
@@ -96,18 +143,18 @@
       id: 'lv', title: 'Linker Ventrikel', fields: [
         { id: 'lvSize', label: 'LV-Größe', type: 'radio', options: ['kleinlumig', ...NORMAL_GRADES], auto: 'lvSize', measures: ['lvedd', 'lvedvi'] },
         { id: 'lvHypertrophy', label: 'Wanddicke', type: 'radio', options: [...NORMAL_GRADES], auto: 'lvHypertrophy', measures: ['ivs', 'lvpw', 'lvmi', 'rwt'] },
-        { id: 'lvFunction', label: 'Systolische Funktion', type: 'radio', options: [...NORMAL_GRADES], auto: 'lvFunction', measures: ['lvef'] },
-        { id: 'wma', label: 'Wandbewegung', type: 'radio', options: ['keine', 'keine sicheren', 'diffus', 'regional', 'nicht beurteilbar'] },
+        { id: 'lvFunction', label: 'Systolische Funktion', type: 'radio', options: [...NORMAL_GRADES], auto: 'lvFunction', measures: ['lvef', 'lvefSimpson', 'gls'] },
+        { id: 'wma', label: 'Wandbewegung', type: 'radio', options: ['keine', 'keine sicheren', 'diffus', 'regional', 'nicht beurteilbar'], segments: 'wmaSegments' },
         { id: 'wmaSegments', label: 'Segmente', type: 'wma', showIf: { field: 'wma', in: ['regional'] } },
         { id: 'lvExtras', label: 'Weiteres', type: 'multi', options: ['paradoxe Septumbewegung', 'LV-Thrombus', 'Non-Compaction-Aspekt'] },
-        { id: 'diastolic', label: 'Diastolische Funktion', type: 'radio', options: ['normal', 'Grad I', 'Grad II', 'Grad III', 'nicht beurteilbar'], measures: ['ea', 'eePrime', 'lavi'] },
+        { id: 'diastolic', label: 'Diastolische Funktion', type: 'radio', options: ['normal', 'Grad I', 'Grad II', 'Grad III', 'nicht beurteilbar'], auto: 'diastolic', measures: ['ea', 'eePrime', 'lavi'] },
         { id: 'diastolicReason', label: 'nicht beurteilbar wegen', type: 'radio', options: ['Vorhofflimmern', 'Extrasystolie', 'Tachykardie', 'keine Angabe'], default: 'keine Angabe', showIf: { field: 'diastolic', in: ['nicht beurteilbar'] } },
       ],
     },
     {
       id: 'rechts', title: 'Rechter Ventrikel & Vorhöfe', fields: [
         { id: 'rvSize', label: 'RV-Größe', type: 'radio', options: [...NORMAL_GRADES], auto: 'rvSize', measures: ['rvBasal'] },
-        { id: 'rvFunction', label: 'RV-Funktion', type: 'radio', options: [...NORMAL_GRADES], auto: 'rvFunction', measures: ['tapse'] },
+        { id: 'rvFunction', label: 'RV-Funktion', type: 'radio', options: [...NORMAL_GRADES], auto: 'rvFunction', measures: ['tapse', 'rvFac'] },
         { id: 'laSize', label: 'Linker Vorhof', type: 'radio', options: [...NORMAL_GRADES], auto: 'laSize', measures: ['laDiam', 'lavi'] },
         { id: 'raSize', label: 'Rechter Vorhof', type: 'radio', options: [...NORMAL_GRADES], auto: 'raSize', measures: ['raDiam'] },
         { id: 'septumExtras', label: 'Vorhofseptum', type: 'multi', options: ['pendelndes Vorhofseptum', 'Vorhofseptumaneurysma', 'V.a. PFO/ASD', 'St.p. PFO/ASD-Verschluss'] },
@@ -115,33 +162,33 @@
     },
     {
       id: 'ak', title: 'Aortenklappe', fields: [
-        { id: 'avMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'leichtgradig verkalkt', 'mittelgradig verkalkt', 'hochgradig verkalkt', ...PROSTHESES] },
+        { id: 'avMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'leichtgradig verkalkt', 'mittelgradig verkalkt', 'hochgradig verkalkt', ...PROSTHESES], summary: false },
         { id: 'avExtras', label: 'Weiteres', type: 'multi', options: ['bikuspid', 'Aortenringverkalkung'] },
         { id: 'avStenosis', label: 'Stenose', type: 'radio', options: ['keine', 'Sklerose', ...GRADES], auto: 'avStenosis', measures: ['avVmax', 'avPmean', 'ava', 'avai', 'dvi'] },
-        { id: 'avInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF, showIf: { field: 'avMorph', notIn: PROSTHESES } },
+        { id: 'avInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF, auto: 'avInsuff', measures: ['arVc', 'arPht', 'arEroa', 'arRvol'], showIf: { field: 'avMorph', notIn: PROSTHESES } },
         { id: 'avInsuffValv', label: 'valvuläre Insuffizienz', type: 'radio', options: INSUFF, showIf: { field: 'avMorph', in: PROSTHESES } },
         { id: 'avInsuffParav', label: 'paravalvuläre Insuffizienz', type: 'radio', options: INSUFF, showIf: { field: 'avMorph', in: PROSTHESES } },
       ],
     },
     {
       id: 'mk', title: 'Mitralklappe', fields: [
-        { id: 'mvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'leichtgradig verkalkt', 'mittelgradig verkalkt', 'hochgradig verkalkt', 'St.p. Rekonstruktion', 'St.p. biologischem Ersatz', 'St.p. mechanischem Ersatz'] },
+        { id: 'mvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'leichtgradig verkalkt', 'mittelgradig verkalkt', 'hochgradig verkalkt', 'St.p. Rekonstruktion', 'St.p. biologischem Ersatz', 'St.p. mechanischem Ersatz'], summary: false },
         { id: 'mvExtras', label: 'Weiteres', type: 'multi', options: ['Mitralringverkalkung', 'Prolaps anteriores Segel', 'Prolaps posteriores Segel', 'Flail leaflet', 'SAM'] },
         { id: 'mvStenosis', label: 'Stenose', type: 'radio', options: STENOSIS, auto: 'mvStenosis', measures: ['mvPmean', 'mva'] },
-        { id: 'mvInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF },
+        { id: 'mvInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF, auto: 'mvInsuff', measures: ['mrVc', 'mrEroa', 'mrRvol'] },
         { id: 'mvJet', label: 'Jet-Richtung', type: 'radio', options: ['zentral', 'nach anterior gerichtet', 'nach posterior gerichtet', 'keine Angabe'], default: 'keine Angabe', showIf: { field: 'mvInsuff', notIn: ['', 'keine', 'minimal'] } },
       ],
     },
     {
       id: 'tk', title: 'Trikuspidalklappe', fields: [
-        { id: 'tvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'verkalkt', 'St.p. Rekonstruktion', 'St.p. biologischem Ersatz'] },
+        { id: 'tvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'verdickt', 'verkalkt', 'St.p. Rekonstruktion', 'St.p. biologischem Ersatz'], summary: false },
         { id: 'tvStenosis', label: 'Stenose', type: 'radio', options: STENOSIS, measures: ['tvPmean'] },
-        { id: 'tvInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF, measures: ['trVmax'] },
+        { id: 'tvInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF, auto: 'tvInsuff', measures: ['trVmax', 'trVc', 'trEroa'] },
       ],
     },
     {
-      id: 'pk', title: 'Pulmonalklappe', toggle: true, fields: [
-        { id: 'pvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'St.p. biologischem Ersatz', 'nicht dargestellt'] },
+      id: 'pk', title: 'Pulmonalklappe', module: 'pk', fields: [
+        { id: 'pvMorph', label: 'Morphologie', type: 'radio', options: ['unauffällig', 'St.p. biologischem Ersatz', 'nicht dargestellt'], summary: false },
         { id: 'pvStenosis', label: 'Stenose', type: 'radio', options: STENOSIS, auto: 'pvStenosis', measures: ['pvVmax', 'pvPmax'] },
         { id: 'pvInsuff', label: 'Insuffizienz', type: 'radio', options: INSUFF },
       ],
@@ -151,12 +198,36 @@
         { id: 'pericard', label: 'Perikarderguss', type: 'radio', options: ['kein', 'geringer', 'mäßiger', 'ausgeprägter', 'epikardiales Fett'] },
         { id: 'pericardExtras', label: 'Erguss-Details', type: 'multi', options: ['zirkulär', 'lokalisiert', 'Zeichen hämodynamischer Relevanz'], showIf: { field: 'pericard', in: ['geringer', 'mäßiger', 'ausgeprägter'] } },
         { id: 'aorta', label: 'Aorta ascendens', type: 'radio', options: ['normal', 'grenzwertig', 'ektatisch', 'aneurysmatisch', 'nicht beurteilbar'], auto: 'aorta', measures: ['aoSinus', 'aoAsc'] },
-        { id: 'aortaExtras', label: 'Weiteres', type: 'multi', options: ['Aortensklerose'] },
+        { id: 'aortaExtras', label: 'Weiteres', type: 'multi', options: ['Aortensklerose'], summary: false },
         { id: 'vciSize', label: 'VCI-Kaliber', type: 'radio', options: ['normal', 'erweitert', 'nicht dargestellt'], auto: 'vciSize', measures: ['vci'] },
         { id: 'vciCollapse', label: 'Atemvariabilität', type: 'radio', options: ['normal (>50%)', 'eingeschränkt (<50%)', 'fehlend', 'keine Angabe'], default: 'keine Angabe', measures: ['rap'] },
-        { id: 'ph', label: 'Pulmonale Hypertonie', type: 'radio', options: ['geringe Wahrscheinlichkeit', 'mittlere Wahrscheinlichkeit', 'hohe Wahrscheinlichkeit', 'nicht beurteilbar'], auto: 'ph', measures: ['trVmax', 'spap'] },
-        { id: 'devices', label: 'Sonden', type: 'multi', options: ['Sonde im RA', 'Sonde im RV'] },
+        { id: 'ph', label: 'Pulmonale Hypertonie', type: 'radio', options: ['geringe Wahrscheinlichkeit', 'mittlere Wahrscheinlichkeit', 'hohe Wahrscheinlichkeit', 'nicht beurteilbar'], auto: 'ph', measures: ['trVmax', 'spap', 'tapseSpap'] },
+        { id: 'devices', label: 'Sonden', type: 'multi', options: ['Sonde im RA', 'Sonde im RV'], summary: false },
         { id: 'freitext', label: 'Ergänzungen', type: 'text' },
+      ],
+    },
+    {
+      id: 'stress', title: 'Stressecho', module: 'stress', fields: [
+        { id: 'stressType', label: 'Belastungsart', type: 'radio', options: ['Fahrradergometrie', 'Laufband', 'Dobutamin', 'Dipyridamol', 'Adenosin'], measures: ['stressWatt'], summary: false },
+        { id: 'stressTarget', label: 'Zielfrequenz', type: 'radio', options: ['erreicht', 'nicht erreicht'], measures: ['stressHfMax', 'stressHfTarget', 'stressHfPercent'], summary: false },
+        { id: 'stressStop', label: 'Abbruchgrund', type: 'multi', options: ['Erschöpfung', 'Angina pectoris', 'Dyspnoe', 'Blutdruckanstieg', 'Blutdruckabfall', 'Rhythmusstörungen', 'neue Wandbewegungsstörung'], summary: false },
+        { id: 'stressSymptoms', label: 'Symptome', type: 'radio', options: ['keine', 'Angina pectoris', 'Dyspnoe', 'Schwindel'], measures: ['stressRrMax'] },
+        { id: 'stressEcg', label: 'EKG unter Belastung', type: 'radio', options: ['keine ischämietypischen Veränderungen', 'ST-Senkungen', 'nicht beurteilbar'] },
+        { id: 'stressWma', label: 'Wandbewegung unter Belastung', type: 'radio', options: ['normale Kontraktilitätszunahme', 'neu aufgetretene Wandbewegungsstörungen', 'nicht beurteilbar'], measures: ['stressLvefRest', 'stressLvefPeak'], segments: 'stressWmaSegments', summary: false },
+        { id: 'stressWmaSegments', label: 'Betroffene Segmente', type: 'wma', showIf: { field: 'stressWma', in: ['neu aufgetretene Wandbewegungsstörungen'] } },
+        { id: 'stressResult', label: 'Beurteilung Stressecho', type: 'radio', options: ['kein Ischämienachweis', 'Ischämienachweis', 'nicht aussagekräftig'], summaryAlways: true },
+      ],
+    },
+    {
+      id: 'tee', title: 'TEE', module: 'tee', fields: [
+        { id: 'teeSedation', label: 'Sedierung', type: 'radio', options: ['keine Sedierung', 'Rachenanästhesie', 'Propofol-Sedierung', 'Midazolam-Sedierung'], summary: false },
+        { id: 'teeComplications', label: 'Komplikationen', type: 'radio', options: ['keine', 'Sättigungsabfall', 'Schluckbeschwerden', 'sonstige'] },
+        { id: 'teeLaa', label: 'Linkes Vorhofohr', type: 'radio', options: ['kein Thrombus', 'spontaner Echokontrast', 'Sludge', 'Thrombus'], measures: ['laaVel'], summaryAlways: true },
+        { id: 'teeIas', label: 'Vorhofseptum', type: 'radio', options: ['intakt', 'PFO', 'ASD', 'Vorhofseptumaneurysma', 'St.p. Verschluss'], summaryAlways: true },
+        { id: 'teeShunt', label: 'Kontrastmittel (Bubble-Test)', type: 'radio', options: ['kein Shunt', 'Shunt in Ruhe', 'Shunt nach Valsalva', 'nicht durchgeführt'], default: 'nicht durchgeführt' },
+        { id: 'teeAorta', label: 'Aortenatheromatose', type: 'radio', options: ['keine', 'Plaques < 4 mm', 'Plaques ≥ 4 mm', 'mobile Plaques'] },
+        { id: 'teeEndocarditis', label: 'Endokarditis', type: 'radio', options: ['kein Hinweis auf Vegetationen', 'Vegetation', 'Abszess'], summaryAlways: true },
+        { id: 'teeEndoSite', label: 'Lokalisation', type: 'multi', options: ['Aortenklappe', 'Mitralklappe', 'Trikuspidalklappe', 'Pulmonalklappe', 'Prothese', 'Sonde'], showIf: { field: 'teeEndocarditis', notIn: ['', 'kein Hinweis auf Vegetationen'] } },
       ],
     },
   ];
@@ -172,10 +243,10 @@
   ];
 
   function allFields() {
-    return SECTIONS.flatMap((s) => s.fields.map((f) => ({ ...f, section: s.id })));
+    return SECTIONS.flatMap((s) => s.fields.map((f) => ({ ...f, section: s.id, module: s.module })));
   }
 
-  function isVisible(field, assess, toggles) {
+  function isVisible(field, assess) {
     const cond = field.showIf;
     if (!cond) return true;
     const v = assess[cond.field] || '';
@@ -184,5 +255,5 @@
     return true;
   }
 
-  return { GRADES, NORMAL_GRADES, MEASURES, SECTIONS, WMA_STATES, SEGMENTS, allFields, isVisible };
+  return { GRADES, NORMAL_GRADES, MODULES, MEASURE_GROUPS, MEASURES, SECTIONS, WMA_STATES, SEGMENTS, allFields, isVisible };
 });

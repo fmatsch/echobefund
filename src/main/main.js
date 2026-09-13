@@ -1,8 +1,10 @@
-const { app, BrowserWindow, ipcMain, clipboard, dialog, shell } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, dialog, shell, net } = require('electron');
 const path = require('node:path');
+const os = require('node:os');
 const fs = require('node:fs/promises');
 const crypto = require('node:crypto');
 const gdt = require('./gdt');
+const dicomsr = require('./dicomsr');
 
 // Separater Datenordner, z. B. für Tests oder einen zweiten Arbeitsplatz-Profil.
 if (process.env.ECHOBEFUND_USER_DATA) app.setPath('userData', process.env.ECHOBEFUND_USER_DATA);
@@ -189,6 +191,10 @@ const safeName = (s) => String(s || '').replace(/[^\p{L}\p{N}_-]+/gu, '-').repla
 ipcMain.handle('gdt:ready', () => {
   rendererReady = true;
   deliverGdt();
+  if (pendingUpdate && mainWindow) {
+    mainWindow.webContents.send('update:available', pendingUpdate);
+    pendingUpdate = null;
+  }
   return gdtStatus;
 });
 
@@ -355,6 +361,147 @@ ipcMain.handle('print', (e) =>
   new Promise((resolve) => e.sender.print({ printBackground: true }, (ok) => resolve(ok)))
 );
 
+// ---------- Vorbefund ----------
+// Sucht den letzten archivierten Befund desselben Patienten (Patientennummer, sonst Name + Geburtsdatum).
+ipcMain.handle('archive:findPrevious', async (_e, query) => {
+  const dir = await archiveDir();
+  let names;
+  try {
+    names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json'));
+  } catch {
+    return null;
+  }
+  const norm = (s) => String(s || '').trim().toLowerCase();
+  const p = (query && query.patient) || {};
+  const matches = (rp) => {
+    if (norm(p.patId) && norm(rp.patId)) return norm(p.patId) === norm(rp.patId);
+    return !!(norm(p.name) && p.geburtsdatum && norm(p.name) === norm(rp.name)
+      && norm(p.vorname) === norm(rp.vorname) && p.geburtsdatum === rp.geburtsdatum);
+  };
+  let best = null;
+  for (const n of names) {
+    const r = await readJson(path.join(dir, n), null);
+    if (!r || !r.id || r.id === query.excludeId || !matches(r.patient || {})) continue;
+    const d = (r.patient && r.patient.datum) || '';
+    if (query.beforeDate && d > query.beforeDate) continue;
+    const bd = best ? best.patient.datum || '' : '';
+    if (!best || d > bd || (d === bd && String(r.updated) > String(best.updated))) best = r;
+  }
+  return best && { id: best.id, datum: best.patient.datum, patient: best.patient, values: best.values, assess: best.assess, reportText: best.reportText };
+});
+
+// ---------- DICOM-SR-Import ----------
+ipcMain.handle('sr:import', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'DICOM-SR-Dateien vom Echogerät wählen',
+    properties: ['openFile', 'multiSelections'],
+    filters: [{ name: 'DICOM', extensions: ['dcm', 'DCM', 'sr', 'SR'] }, { name: 'Alle Dateien', extensions: ['*'] }],
+  });
+  if (canceled || !filePaths.length) return null;
+  const results = [];
+  for (const file of filePaths) {
+    try {
+      const stat = await fs.stat(file);
+      if (stat.size > 50 * 1024 * 1024) throw new Error('Datei zu groß für einen Messwertbericht');
+      results.push({ file: path.basename(file), ...dicomsr.readStructuredReport(await fs.readFile(file)) });
+    } catch (err) {
+      results.push({ file: path.basename(file), error: err.message });
+    }
+  }
+  return results;
+});
+
+// ---------- Gemeinsames Profil (Mehrplatz) ----------
+const validProfilePath = (p) => typeof p === 'string' && /\.json$/i.test(p);
+
+ipcMain.handle('profile:choose', async (e) => {
+  const win = BrowserWindow.fromWebContents(e.sender);
+  const { canceled, filePaths } = await dialog.showOpenDialog(win, {
+    title: 'Ordner für das gemeinsame Profil wählen (z. B. auf dem Praxis-Server)',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  return canceled || !filePaths.length ? null : path.join(filePaths[0], 'echobefund-profil.json');
+});
+
+ipcMain.handle('profile:read', async (_e, file) => {
+  if (!validProfilePath(file)) return { ok: false, error: 'Ungültiger Pfad' };
+  try {
+    return { ok: true, data: JSON.parse(await fs.readFile(file, 'utf8')) };
+  } catch (err) {
+    return { ok: false, missing: err.code === 'ENOENT', error: err.message };
+  }
+});
+
+// Schreibt das Profil nur, wenn es seit dem letzten Lesen nicht an einem anderen Platz geändert wurde.
+ipcMain.handle('profile:write', async (_e, file, data, expectedStamp, force) => {
+  if (!validProfilePath(file)) return { ok: false, error: 'Ungültiger Pfad' };
+  const current = await readJson(file, null);
+  if (!force && current && current.stamp && current.stamp !== expectedStamp) return { ok: false, conflict: true, current };
+  const saved = { ...data, stamp: new Date().toISOString(), savedBy: os.hostname() };
+  try {
+    await writeJson(file, saved);
+    return { ok: true, stamp: saved.stamp };
+  } catch (err) {
+    return { ok: false, error: err.message };
+  }
+});
+
+// ---------- Update-Hinweis ----------
+// Fragt höchstens einmal täglich bei GitHub nach der neuesten Version. Es werden keine Patientendaten übertragen.
+const REPO = 'fmatsch/echobefund';
+const DAY_MS = 24 * 60 * 60 * 1000;
+let pendingUpdate = null;
+const updateFile = () => path.join(app.getPath('userData'), 'update-check.json');
+
+function newerVersion(a, b) {
+  const pa = String(a).replace(/^v/, '').split('.').map(Number);
+  const pb = String(b).replace(/^v/, '').split('.').map(Number);
+  for (let i = 0; i < 3; i++) {
+    if ((pa[i] || 0) !== (pb[i] || 0)) return (pa[i] || 0) > (pb[i] || 0);
+  }
+  return false;
+}
+
+async function checkForUpdate(force) {
+  const current = app.getVersion();
+  const settings = await readJson(settingsFile(), {});
+  if (!force && settings.updates && settings.updates.check === false) return { status: 'disabled', current };
+  const last = await readJson(updateFile(), {});
+  if (!force && last.checkedAt && Date.now() - last.checkedAt < DAY_MS && last.result) {
+    const r = last.result;
+    if (r.status === 'available' && !newerVersion(r.version, current)) return { status: 'current', version: r.version, current };
+    return { ...r, current };
+  }
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 8000);
+  try {
+    const res = await net.fetch(`https://api.github.com/repos/${REPO}/releases/latest`, {
+      headers: { Accept: 'application/vnd.github+json', 'User-Agent': `Echobefund/${current}` },
+      signal: controller.signal,
+    });
+    if (!res.ok) throw new Error(`GitHub antwortet mit ${res.status}`);
+    const release = await res.json();
+    const version = String(release.tag_name || '').replace(/^v/, '');
+    const url = String(release.html_url || '');
+    const result = newerVersion(version, current) && url.startsWith(`https://github.com/${REPO}/`)
+      ? { status: 'available', version, url }
+      : { status: 'current', version };
+    await writeJson(updateFile(), { checkedAt: Date.now(), result });
+    return { ...result, current };
+  } catch (err) {
+    return { status: 'error', error: err.name === 'AbortError' ? 'Zeitüberschreitung' : err.message, current };
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
+ipcMain.handle('update:check', () => checkForUpdate(true));
+ipcMain.handle('open:release', (_e, url) => {
+  if (typeof url === 'string' && url.startsWith(`https://github.com/${REPO}/`)) return shell.openExternal(url);
+  return false;
+});
+
 app.on('second-instance', () => {
   showWindow();
   pollGdt();
@@ -363,6 +510,12 @@ app.on('second-instance', () => {
 app.whenReady().then(() => {
   createWindow();
   restartGdt();
+  setTimeout(async () => {
+    const result = await checkForUpdate(false);
+    if (result.status !== 'available') return;
+    if (rendererReady && mainWindow) mainWindow.webContents.send('update:available', result);
+    else pendingUpdate = result;
+  }, 4000);
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow();
   });

@@ -132,6 +132,57 @@ tr.clickable:hover { background: var(--auto-soft); cursor: pointer; }
 #toast { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1d2733; color: #fff; padding: 8px 16px; border-radius: 20px; opacity: 0; transition: opacity .2s; pointer-events: none; }
 #toast.show { opacity: 1; }
 
+button:disabled { opacity: .5; cursor: not-allowed; }
+
+/* Vorlagen-Menü */
+.menu-wrap { position: relative; }
+.menu { position: absolute; top: calc(100% + 4px); right: 0; min-width: 280px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 10px 30px rgba(0,0,0,.15); padding: 4px; z-index: 50; display: flex; flex-direction: column; }
+.menu[hidden] { display: none; }
+.menu-item { border: 0; text-align: left; background: none; padding: 7px 10px; border-radius: 5px; }
+.menu-item:hover { background: var(--auto-soft); }
+.menu hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; width: 100%; }
+.menu-empty { padding: 7px 10px; color: var(--muted); }
+
+/* Vorbefund */
+.prev-strip { display: flex; align-items: center; gap: 12px; padding: 6px 14px; background: #fff8e6; border-bottom: 1px solid #f0d596; color: #6b4a00; font-size: 12px; }
+.prev-strip[hidden] { display: none; }
+.prev-strip label { display: flex; align-items: center; gap: 4px; }
+.measure .prev { grid-column: 1 / -1; margin: -3px 48px 3px 0; font-size: 10px; color: #8a5a00; text-align: right; }
+.measure .prev[hidden] { display: none; }
+#prev-dialog { width: min(760px, 92vw); }
+.prev-text { white-space: pre-wrap; padding: 14px; overflow: auto; line-height: 1.45; }
+
+/* Update-Hinweis */
+.banner.update { background: #e4f4ec; border-color: #b6dfc8; color: #1f5a3a; }
+
+/* DICOM-SR-Import */
+.import-btn { width: 100%; margin-bottom: 12px; }
+#sr-dialog { width: min(1240px, 96vw); }
+.sr-body { overflow: auto; padding: 8px 14px; }
+.sr-table td { font-size: 12px; vertical-align: middle; }
+.sr-table tr.sr-file td { background: #f3f5f8; font-weight: 600; }
+.sr-label { max-width: 440px; }
+.sr-table select { max-width: 270px; }
+.sr-badge { font-size: 10px; border-radius: 8px; padding: 0 6px; white-space: nowrap; }
+.sr-badge.vorschlag { color: #8a5a00; background: #fff4dc; }
+.sr-badge.gemerkt { color: #1f7a4d; background: #e4f4ec; }
+.sr-preview { white-space: nowrap; font-variant-numeric: tabular-nums; }
+.sr-preview.bad { color: var(--accent); }
+.sr-warning { background: var(--accent-soft); border: 1px solid #eab4bd; border-radius: 8px; padding: 10px 14px; margin: 8px 0; color: #7a1a28; }
+.sr-warning ul { margin: 6px 0; }
+.sr-errors { color: var(--muted); font-size: 12px; margin: 6px 0; }
+td.num { text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Eingabedialog */
+#prompt-dialog { width: min(440px, 92vw); }
+#prompt-dialog form { display: flex; flex-direction: column; }
+.prompt-body { padding: 14px; }
+.prompt-body label { display: flex; flex-direction: column; gap: 6px; }
+
+/* Einstellungen: Vorlagen */
+.preset-row { display: grid; grid-template-columns: 1fr 140px auto; gap: 8px; align-items: center; margin-bottom: 6px; }
+.preset-row input { width: 100%; }
+
 #print-view { display: none; }
 @media print {
   @page { size: A4; }

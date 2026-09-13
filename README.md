@@ -3,7 +3,17 @@
 Desktop-App (macOS, Windows) zur Erstellung von Echokardiographie-Befunden:
 Messwerte eingeben → automatische Graduierung anhand editierbarer Normwerte →
 Befundtext aus editierbaren Textbausteinen → Zwischenablage, PDF oder Druck.
-Befunde können lokal archiviert werden.
+
+**Funktionen im Überblick**
+- Automatische Graduierung nach editierbaren Normwerten, diastolische Funktion nach ASE/EACVI 2016
+- Quantifizierung von Mitral-, Aorten- und Trikuspidalinsuffizienz (EROA, RVol, Vena contracta, PHT), GLS, RV-FAC
+- Befundtext mit automatischer **Beurteilung** der auffälligen Befunde
+- **Vergleich mit dem Vorbefund** aus dem Archiv (frühere Werte neben den Messfeldern, Verlaufssatz im Befund)
+- **Schnellvorlagen** (z. B. Normalbefund, eigene Vorlagen)
+- Zusatzmodule **Stressecho** und **TEE**
+- **DICOM-SR-Import** von Messwerten des Echogeräts mit Einheitenumrechnung und gemerkten Zuordnungen
+- GDT-Anbindung an Praxissoftware (z. B. EOSWIN) mit Verbindungsampel
+- Lokales Archiv, PDF, Druck, **gemeinsames Profil** für mehrere Arbeitsplätze, Hinweis auf neue Versionen
 
 **Webseite:** https://fmatsch.github.io/echobefund/
 
@@ -94,7 +104,10 @@ automatisch auf die neueste Version.
 | `src/shared/schema.js` | Messwerte und Beurteilungsfelder (Formular-Definition) |
 | `src/shared/defaults.js` | Standard-Normwerte und Textbausteine |
 | `src/shared/calc.js` | KOF, LV-Masse, AÖF, SV/HZV, RAP, sPAP … |
-| `src/shared/report.js` | Automatische Bewertung und Befundtext |
+| `src/shared/report.js` | Automatische Bewertung, Diastolik-Algorithmus, Befundtext, Beurteilung, Verlaufsvergleich |
+| `src/shared/srmap.js` | DICOM-SR: Einheiten umrechnen, Zuordnungsvorschläge |
+| `src/main/dicomsr.js` | DICOM-SR-Leser (Explicit/Implicit VR, Deflated) |
+| `src/main/gdt.js` | GDT 2.1: Zeichensätze, Sätze, Dateinamen, Verbindungsstatus |
 | `src/main/` | Electron-Hauptprozess: Einstellungen, Archiv, PDF, Druck |
 | `src/renderer/` | Oberfläche |
 
@@ -107,6 +120,16 @@ automatisch auf die neueste Version.
 - Die Daten sind **nicht** von der App verschlüsselt. Bitte FileVault (macOS) oder BitLocker (Windows) aktivieren
   und das Archiv in das Backup-Konzept der Praxis aufnehmen (DSGVO).
 - Einstellungen lassen sich exportieren und importieren, z. B. für einen zweiten Arbeitsplatz.
+- **Mehrere Arbeitsplätze:** Unter Einstellungen → „Mehrplatz & Updates“ kann ein gemeinsames Profil
+  (`echobefund-profil.json`, z. B. auf dem Praxis-Server) verbunden werden. Es enthält Befund-Optionen, Normwerte,
+  Textbausteine, Vorlagen und DICOM-Zuordnungen; GDT, Archiv-Ordner und Update-Einstellung bleiben pro Platz.
+  Gleichzeitige Änderungen an zwei Plätzen werden erkannt und nicht stillschweigend überschrieben.
+- **Updates:** Echobefund fragt höchstens einmal täglich bei der GitHub-API nach der neuesten Version
+  (keine Patientendaten; abschaltbar). Installiert wird nichts automatisch – es erscheint nur ein Hinweis.
+- **DICOM-SR:** Importierte Dateien werden nur gelesen, nicht gespeichert. Weichen Name, ID oder Geburtsdatum
+  in der Datei vom geöffneten Patienten ab, muss die Übernahme ausdrücklich bestätigt werden.
+  Die Zuordnungsvorschläge beruhen auf den englischen DICOM-Bezeichnungen und sind mit echten Gerätedateien
+  zu prüfen.
 
 ## Tastenkürzel
 

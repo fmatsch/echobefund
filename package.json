@@ -1,7 +1,7 @@
 {
   "name": "echobefund",
   "productName": "Echobefund",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "description": "Befundgenerator für Echokardiographie",
   "author": "Echobefund",
   "main": "src/main/main.js",

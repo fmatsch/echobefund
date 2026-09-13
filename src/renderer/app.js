@@ -1,20 +1,32 @@
 (function () {
-  const { MEASURES, SECTIONS, allFields, isVisible } = window.EchoSchema;
+  const { MEASURES, MEASURE_GROUPS, SECTIONS, allFields, isVisible } = window.EchoSchema;
+  const { SHARED_KEYS } = window.EchoDefaults;
   const { h, merge } = window.EchoSettingsUI;
+  const Calc = window.EchoCalc;
+  const Report = window.EchoReport;
+  const SrMap = window.EchoSrMap;
   const api = window.api;
   const $ = (sel) => document.querySelector(sel);
   const FIELDS = allFields();
+  const FIELD_IDS = new Set(FIELDS.map((f) => f.id));
+  const MEASURE_BY_ID = Object.fromEntries(MEASURES.map((m) => [m.id, m]));
+  const isNum = (v) => typeof v === 'number' && Number.isFinite(v);
 
   let settings;
   let state;
   let autoSet = new Set(); // Felder, deren Wert aktuell von der Automatik stammt
   let dirty = false;
+  let profileStamp = null; // Stand des gemeinsamen Profils beim letzten Lesen/Schreiben
   const fieldViews = {};    // id -> { root, update }
   const derivedOutputs = {}; // id -> <output>
   const measureInputs = {};  // id -> <input>
+  const prevHints = {};      // id -> <small> "zuvor …"
+  const groupEls = [];       // { el, group }
+  const moduleCards = [];    // { card, section }
 
-  const today = () => new Date().toISOString().slice(0, 10);
+  const today = () => new Date().toLocaleDateString('sv-SE'); // JJJJ-MM-TT in lokaler Zeit
   const deDate = (iso) => (iso ? iso.split('-').reverse().join('.') : '');
+  const fmt = (v, dec) => v.toFixed(dec).replace('.', ',');
 
   function emptyState() {
     const assess = {};
@@ -22,8 +34,12 @@
     return {
       id: null, created: null,
       patient: { name: '', vorname: '', geburtsdatum: '', patId: '', sex: '', datum: today(), untersucher: settings.lastExaminer || '', indikation: '' },
-      values: {}, assess, manual: [], showPk: !!settings.showPulmonary, reportText: '',
-      gdt: null, // { charset, testType, senderId, sentAt, file } bei Auftrag aus der Praxissoftware
+      values: {}, assess, manual: [],
+      modules: { ...settings.modules },
+      compare: settings.comparison.inReport !== false,
+      reportText: '',
+      gdt: null,      // { charset, testType, senderId, sentAt, file } bei Auftrag aus der Praxissoftware
+      previous: null, // Vorbefund aus dem Archiv (wird nicht mitgespeichert)
     };
   }
 
@@ -32,7 +48,7 @@
     t.textContent = msg;
     t.classList.add('show');
     clearTimeout(toast.timer);
-    toast.timer = setTimeout(() => t.classList.remove('show'), 2200);
+    toast.timer = setTimeout(() => t.classList.remove('show'), 2600);
   }
 
   function setDirty(v) {
@@ -40,6 +56,72 @@
     const p = state.patient;
     const who = [p.name, p.vorname].filter(Boolean).join(', ');
     $('#record-status').textContent = `${state.id ? who || 'Befund' : 'Neuer Befund'}${dirty ? ' • ungespeichert' : ''}`;
+  }
+
+  // ---------- Einstellungen & gemeinsames Profil ----------
+
+  const sharedSubset = (s) => Object.fromEntries(SHARED_KEYS.map((k) => [k, s[k]]));
+
+  function applyShared(data) {
+    const next = { ...settings };
+    for (const k of SHARED_KEYS) if (data[k] !== undefined) next[k] = data[k];
+    settings = merge(next);
+  }
+
+  async function connectProfile(path) {
+    const r = await api.profileRead(path);
+    if (r.ok) {
+      const when = r.data.stamp ? new Date(r.data.stamp).toLocaleString('de-DE') : 'unbekannt';
+      const from = r.data.savedBy ? ` an „${r.data.savedBy}“` : '';
+      if (confirm(`Im gewählten Ordner liegt bereits ein gemeinsames Profil (zuletzt gespeichert ${when}${from}).\n\nOK = Einstellungen aus dem Profil übernehmen\nAbbrechen = das Profil mit den Einstellungen dieses Arbeitsplatzes überschreiben`)) {
+        applyShared(r.data);
+      }
+      profileStamp = r.data.stamp || null;
+      return true;
+    }
+    if (r.missing) {
+      profileStamp = null;
+      return true;
+    }
+    alert(`Das gemeinsame Profil kann nicht gelesen werden:\n${r.error}`);
+    return false;
+  }
+
+  // Speichert lokal und – falls verbunden und gemeinsame Einstellungen betroffen – im gemeinsamen Profil.
+  async function persistSettings(sharedChanged) {
+    await api.saveSettings(settings);
+    if (!sharedChanged || !settings.profile.path) return;
+    let w = await api.profileWrite(settings.profile.path, sharedSubset(settings), profileStamp, false);
+    if (w.conflict) {
+      const overwrite = confirm('Das gemeinsame Profil wurde inzwischen an einem anderen Arbeitsplatz geändert.\n\nOK = Ihre Änderungen trotzdem speichern (überschreibt die anderen Änderungen)\nAbbrechen = Profil neu laden (Ihre Änderungen an gemeinsamen Einstellungen gehen verloren)');
+      if (!overwrite) {
+        applyShared(w.current);
+        profileStamp = w.current.stamp || null;
+        await api.saveSettings(settings);
+        refreshAll();
+        return;
+      }
+      w = await api.profileWrite(settings.profile.path, sharedSubset(settings), profileStamp, true);
+    }
+    if (w.ok) profileStamp = w.stamp;
+    else toast('Gemeinsames Profil nicht erreichbar – Einstellungen nur an diesem Arbeitsplatz gespeichert');
+  }
+
+  // Übernimmt Änderungen anderer Arbeitsplätze (beim Zurückkehren ins Fenster).
+  async function syncProfile() {
+    if (!settings.profile.path || document.querySelector('dialog[open]')) return;
+    const r = await api.profileRead(settings.profile.path);
+    if (!r.ok || !r.data.stamp || r.data.stamp === profileStamp) return;
+    applyShared(r.data);
+    profileStamp = r.data.stamp;
+    await api.saveSettings(settings);
+    refreshAll();
+    toast('Gemeinsame Einstellungen wurden von einem anderen Arbeitsplatz aktualisiert');
+  }
+
+  function refreshAll() {
+    updateGdtUI();
+    refresh(false);
   }
 
   // ---------- Messwerte ----------
@@ -50,13 +132,12 @@
     const n = Number(t);
     return Number.isFinite(n) ? n : NaN;
   }
-  const fmt = (v, dec) => v.toFixed(dec).replace('.', ',');
 
   function buildMeasures() {
     const root = $('#measures');
-    const groups = [['basis', 'Körpermaße'], ['standard', 'Messwerte'], ['weitere', 'Weitere Messwerte'], ['berechnet', 'Berechnet']];
-    for (const [gid, title] of groups) {
-      const rows = MEASURES.filter((m) => m.group === gid).map((m) => {
+    root.append(h('button', { class: 'import-btn', id: 'btn-sr', title: 'Messwerte aus einer DICOM-SR-Datei des Echogeräts übernehmen', onclick: importSr }, 'DICOM-SR importieren …'));
+    for (const group of MEASURE_GROUPS) {
+      const rows = MEASURES.filter((m) => m.group === group.id).map((m) => {
         let control;
         if (m.derived) {
           control = derivedOutputs[m.id] = h('output', {}, '–');
@@ -72,17 +153,32 @@
             },
           });
         }
-        return h('label', { class: 'measure' }, h('span', {}, m.label), control, h('span', { class: 'unit' }, m.unit));
+        prevHints[m.id] = h('small', { class: 'prev', hidden: true });
+        return h('label', { class: 'measure' }, h('span', {}, m.label), control, h('span', { class: 'unit' }, m.unit), prevHints[m.id]);
       });
-      const group = gid === 'weitere'
-        ? h('details', { class: 'measure-group', open: true }, h('summary', {}, title), rows)
-        : h('div', { class: 'measure-group' }, h('h3', {}, title), rows);
-      root.append(group);
+      const el = group.collapsible
+        ? h('details', { class: 'measure-group', open: !group.collapsed }, h('summary', {}, group.title), rows)
+        : h('div', { class: 'measure-group' }, h('h3', {}, group.title), rows);
+      groupEls.push({ el, group });
+      root.append(el);
     }
   }
 
+  const ageOf = (p) => Calc.ageYears(p.geburtsdatum, p.datum);
+
   function computedValues() {
-    return window.EchoCalc.compute(state.values, state.assess, { bsaFormula: settings.bsaFormula });
+    return Calc.compute(state.values, state.assess, { bsaFormula: settings.bsaFormula, age: ageOf(state.patient) });
+  }
+
+  function previousComputed() {
+    const prev = state.previous;
+    if (!prev) return null;
+    const assess = prev.assess || {};
+    return {
+      datum: prev.datum,
+      assess,
+      values: Calc.compute(prev.values || {}, assess, { bsaFormula: settings.bsaFormula, age: ageOf(prev.patient || {}) }),
+    };
   }
 
   // ---------- Beurteilungen ----------
@@ -92,10 +188,11 @@
     for (const section of SECTIONS) {
       const card = h('div', { class: 'card', 'data-section': section.id });
       const heading = h('h3', {}, section.title);
-      if (section.toggle) {
-        const cb = h('input', { type: 'checkbox', onchange: (e) => { state.showPk = e.target.checked; refresh(true); } });
+      if (section.module) {
+        const cb = h('input', { type: 'checkbox', onchange: (e) => { state.modules[section.module] = e.target.checked; refresh(true); } });
         heading.append(h('label', {}, cb, ' einblenden'));
         card._toggle = cb;
+        moduleCards.push({ card, section });
       }
       card.append(heading);
       for (const field of section.fields) {
@@ -148,8 +245,8 @@
     } else if (field.type === 'wma') {
       const container = h('div');
       root.append(container);
-      const bull = window.EchoBullseye.render(container, () => state.assess.wmaSegments || {}, (segs) => {
-        state.assess.wmaSegments = segs;
+      const bull = window.EchoBullseye.render(container, () => state.assess[field.id] || {}, (segs) => {
+        state.assess[field.id] = segs;
         refresh(true);
       });
       update = bull.update;
@@ -173,7 +270,7 @@
   }
 
   function applyAuto(values) {
-    const auto = window.EchoReport.autoGradeAll(settings.norms, values, state.patient.sex);
+    const auto = Report.autoGradeAll(settings.norms, values, state.patient.sex, state.assess);
     if (!settings.autoGrade) return auto;
     for (const f of FIELDS) {
       if (!f.auto || state.manual.includes(f.id)) continue;
@@ -189,29 +286,277 @@
   }
 
   function refresh(changed) {
-    // VCI-Kollaps beeinflusst RAP → sPAP → PH, daher zweimal rechnen ist nicht nötig:
-    // Berechnung nutzt die Beurteilungen, Automatik nutzt die berechneten Werte.
     const values = computedValues();
     const auto = applyAuto(values);
     for (const m of MEASURES) {
       if (!m.derived) continue;
       const v = values[m.id];
-      derivedOutputs[m.id].textContent = typeof v === 'number' && Number.isFinite(v) ? fmt(v, m.dec) : '–';
+      derivedOutputs[m.id].textContent = isNum(v) ? fmt(v, m.dec) : '–';
     }
+    updatePreviousUI();
     for (const f of FIELDS) fieldViews[f.id].update(auto[f.id] !== undefined);
-    const pkCard = document.querySelector('[data-section="pk"]');
-    pkCard._toggle.checked = state.showPk;
-    pkCard.classList.toggle('collapsed', !state.showPk);
+    for (const { card, section } of moduleCards) {
+      const on = !!state.modules[section.module];
+      card._toggle.checked = on;
+      card.classList.toggle('collapsed', !on);
+    }
+    for (const { el, group } of groupEls) if (group.module) el.hidden = !state.modules[group.module];
     if (changed) setDirty(true);
+  }
+
+  // ---------- Vorbefund ----------
+
+  let prevTimer = null;
+  let prevSeq = 0;
+
+  function schedulePreviousLookup() {
+    clearTimeout(prevTimer);
+    prevTimer = setTimeout(lookupPrevious, 350);
+  }
+
+  async function lookupPrevious() {
+    const p = state.patient;
+    const seq = ++prevSeq;
+    if (settings.comparison.enabled === false || !(p.patId || (p.name && p.geburtsdatum))) {
+      if (state.previous) { state.previous = null; refresh(false); }
+      return;
+    }
+    const prev = await api.findPrevious({ patient: p, excludeId: state.id, beforeDate: p.datum });
+    if (seq !== prevSeq) return; // inzwischen neue Suche gestartet
+    state.previous = prev || null;
+    refresh(false);
+  }
+
+  function updatePreviousUI() {
+    const prev = settings.comparison.enabled !== false ? previousComputed() : null;
+    $('#prev-strip').hidden = !prev;
+    for (const m of MEASURES) {
+      // Alter und KOF ändern sich ohnehin – kein Vergleichshinweis
+      const v = prev && m.group !== 'basis' && prev.values[m.id];
+      const hint = prevHints[m.id];
+      hint.hidden = !isNum(v);
+      hint.textContent = isNum(v) ? `zuvor ${fmt(v, m.dec)}` : '';
+    }
+    if (prev) {
+      $('#prev-date').textContent = deDate(prev.datum) || 'ohne Datum';
+      $('#prev-compare').checked = !!state.compare;
+    }
+  }
+
+  function showPreviousReport() {
+    const prev = state.previous;
+    if (!prev) return;
+    $('#prev-dialog-title').textContent = `Vorbefund vom ${deDate(prev.datum) || 'ohne Datum'}`;
+    $('#prev-dialog-text').textContent = prev.reportText || '(Für diesen Befund wurde kein Befundtext gespeichert.)';
+    $('#prev-dialog').showModal();
+  }
+
+  // ---------- Vorlagen ----------
+
+  function hidePresetMenu() {
+    $('#preset-menu').hidden = true;
+  }
+
+  function renderPresetMenu() {
+    const menu = $('#preset-menu');
+    menu.textContent = '';
+    for (const preset of settings.presets) {
+      menu.append(h('button', { class: 'menu-item', onclick: () => { hidePresetMenu(); applyPreset(preset); } }, preset.name));
+    }
+    if (!settings.presets.length) menu.append(h('div', { class: 'menu-empty' }, 'Noch keine Vorlagen'));
+    menu.append(h('hr'), h('button', { class: 'menu-item', onclick: () => { hidePresetMenu(); saveAsPreset(); } }, 'Aktuelle Auswahl als Vorlage speichern …'));
+  }
+
+  function applyPreset(preset) {
+    for (const [id, value] of Object.entries(preset.assess || {})) {
+      if (!FIELD_IDS.has(id)) continue;
+      state.assess[id] = structuredClone(value);
+      state.manual = state.manual.filter((x) => x !== id);
+      autoSet.delete(id);
+    }
+    if (preset.modules) state.modules = { ...state.modules, ...preset.modules };
+    refresh(true); // Messwerte und automatische Bewertung haben Vorrang
+    toast(`Vorlage „${preset.name}“ angewendet`);
+  }
+
+  async function saveAsPreset() {
+    const name = await askText('Vorlage speichern', 'Name der Vorlage (z. B. „Kontrolle nach TAVI“)', '');
+    if (!name) return;
+    const assess = {};
+    for (const f of FIELDS) {
+      const v = state.assess[f.id];
+      if (f.type === 'text' || v === undefined || v === '' || (Array.isArray(v) && !v.length)) continue;
+      assess[f.id] = structuredClone(v);
+    }
+    const existing = settings.presets.find((p) => p.name.toLowerCase() === name.toLowerCase());
+    if (existing && !confirm(`Vorlage „${existing.name}“ überschreiben?`)) return;
+    const preset = { id: existing ? existing.id : `v${Date.now()}`, name, assess, modules: { ...state.modules } };
+    settings.presets = existing ? settings.presets.map((p) => (p === existing ? preset : p)) : [...settings.presets, preset];
+    await persistSettings(true);
+    toast(`Vorlage „${name}“ gespeichert`);
+  }
+
+  function askText(title, label, value) {
+    return new Promise((resolve) => {
+      const dlg = $('#prompt-dialog');
+      let result = null;
+      dlg.textContent = '';
+      const input = h('input', { type: 'text', value: value || '' });
+      const form = h('form', { onsubmit: (e) => { e.preventDefault(); result = input.value.trim() || null; dlg.close(); } },
+        h('header', {}, h('h2', {}, title)),
+        h('div', { class: 'prompt-body' }, h('label', {}, label, input)),
+        h('footer', {}, h('div', { class: 'spacer' }),
+          h('button', { type: 'button', onclick: () => dlg.close() }, 'Abbrechen'),
+          h('button', { type: 'submit', class: 'primary' }, 'OK')));
+      dlg.append(form);
+      dlg.onclose = () => resolve(result);
+      dlg.showModal();
+      input.focus();
+    });
+  }
+
+  // ---------- DICOM-SR-Import ----------
+
+  async function importSr() {
+    const results = await api.importSr();
+    if (!results) return;
+    const errors = results.filter((r) => r.error);
+    const files = results.filter((r) => !r.error && r.measurements.length);
+    if (!files.length) {
+      const reasons = [
+        ...errors.map((r) => `${r.file}: ${r.error}`),
+        ...results.filter((r) => !r.error && !r.measurements.length).map((r) => `${r.file}: keine Messwerte enthalten`),
+      ];
+      alert(`Es konnten keine Messwerte gelesen werden.\n\n${reasons.join('\n')}`);
+      return;
+    }
+    openSrDialog(files, errors);
+  }
+
+  function patientWarnings(files) {
+    const p = state.patient;
+    const current = SrMap.normalizeName(`${p.name} ${p.vorname}`);
+    const out = [];
+    for (const f of files) {
+      const idMismatch = f.patient.id && p.patId && f.patient.id.trim() !== p.patId.trim();
+      const srName = SrMap.normalizeName(f.patient.name);
+      const nameMismatch = srName && current && srName !== current;
+      const birthMismatch = f.patient.birthDate && p.geburtsdatum && f.patient.birthDate !== p.geburtsdatum;
+      if (idMismatch || nameMismatch || birthMismatch) {
+        out.push(`${f.file}: ${f.patient.name || 'ohne Name'} · ID ${f.patient.id || '–'} · geb. ${deDate(f.patient.birthDate) || '–'}`);
+      }
+    }
+    return out;
+  }
+
+  function openSrDialog(files, errors) {
+    const dlg = $('#sr-dialog');
+    dlg.textContent = '';
+    const targets = MEASURES.filter((m) => !m.derived);
+    const rows = [];
+    const tbody = h('tbody');
+
+    for (const f of files) {
+      const info = [f.file, f.patient.name || 'ohne Name', f.studyDate && deDate(f.studyDate), f.manufacturer, `${f.measurements.length} Messwerte`].filter(Boolean).join(' · ');
+      tbody.append(h('tr', { class: 'sr-file' }, h('td', { colspan: 5 }, info)));
+      for (const item of f.measurements) {
+        const mapping = SrMap.resolveMapping(item, settings.srMappings);
+        const row = { item, measureId: mapping.measureId, source: mapping.source, touched: false, converted: null };
+        const preview = h('td', { class: 'sr-preview' });
+        const badge = h('span', { class: `sr-badge ${mapping.source || ''}` },
+          mapping.source === 'gemerkt' ? 'gemerkt' : mapping.source === 'vorschlag' ? 'Vorschlag – bitte prüfen' : '');
+        const updatePreview = () => {
+          const m = MEASURE_BY_ID[row.measureId];
+          row.converted = m ? SrMap.convertUnit(item.value, item.unit, m.unit) : null;
+          preview.classList.toggle('bad', !!m && row.converted === null);
+          preview.textContent = !m ? '' : row.converted === null ? 'Einheit passt nicht' : `→ ${fmt(row.converted, m.dec)} ${m.unit}`;
+        };
+        const select = h('select', {
+          onchange: (e) => {
+            row.measureId = e.target.value;
+            row.touched = true;
+            badge.textContent = '';
+            badge.className = 'sr-badge';
+            updatePreview();
+          },
+        },
+        h('option', { value: '' }, '— nicht übernehmen —'),
+        targets.map((m) => h('option', { value: m.id, selected: m.id === row.measureId }, `${m.label}${m.unit ? ` [${m.unit}]` : ''}`)));
+        updatePreview();
+        rows.push(row);
+        tbody.append(h('tr', {},
+          h('td', { class: 'sr-label' }, item.label),
+          h('td', { class: 'num' }, String(item.value).replace('.', ',')),
+          h('td', {}, item.unitMeaning || item.unit),
+          h('td', {}, select, ' ', badge),
+          preview));
+      }
+    }
+
+    const warnings = patientWarnings(files);
+    const remember = h('input', { type: 'checkbox', checked: true });
+    const applyBtn = h('button', { class: 'primary', disabled: warnings.length > 0, onclick: apply }, 'Übernehmen');
+    const confirmBox = h('input', { type: 'checkbox', onchange: (e) => { applyBtn.disabled = !e.target.checked; } });
+
+    dlg.append(
+      h('header', {}, h('h2', {}, 'Messwerte aus DICOM-SR übernehmen')),
+      h('div', { class: 'sr-body' },
+        warnings.length ? h('div', { class: 'sr-warning' },
+          h('strong', {}, 'Achtung: Die Datei gehört möglicherweise zu einem anderen Patienten!'),
+          h('ul', {}, warnings.map((w) => h('li', {}, w))),
+          h('label', {}, confirmBox, ' Ich habe geprüft, dass die Messwerte zu diesem Patienten gehören.')) : null,
+        errors.length ? h('div', { class: 'sr-errors' }, `Nicht lesbar: ${errors.map((r) => `${r.file} (${r.error})`).join('; ')}`) : null,
+        h('p', { class: 'hint' }, 'Wählen Sie für jeden Messwert das passende Feld. Vorschläge beruhen auf der englischen Gerätebezeichnung und müssen geprüft werden. Einheiten werden automatisch umgerechnet; bereits eingetragene Werte werden überschrieben.'),
+        h('table', { class: 'sr-table' },
+          h('thead', {}, h('tr', {}, ['Messung (laut Gerät)', 'Wert', 'Einheit', 'Übernehmen als', 'Ergebnis'].map((t) => h('th', {}, t)))),
+          tbody)),
+      h('footer', {},
+        h('label', {}, remember, ' Zuordnungen für künftige Importe merken'),
+        h('div', { class: 'spacer' }),
+        h('button', { onclick: () => dlg.close() }, 'Abbrechen'),
+        applyBtn));
+    dlg.showModal();
+
+    async function apply() {
+      const taken = new Set();
+      const skipped = [];
+      let count = 0;
+      for (const row of rows) {
+        const m = MEASURE_BY_ID[row.measureId];
+        if (!m) continue;
+        if (row.converted === null) { skipped.push(`${row.item.label}: Einheit passt nicht zu ${m.label}`); continue; }
+        if (taken.has(m.id)) { skipped.push(`${row.item.label}: ${m.label} ist bereits aus einer anderen Messung belegt`); continue; }
+        taken.add(m.id);
+        const value = Number(row.converted.toFixed(m.dec));
+        state.values[m.id] = value;
+        measureInputs[m.id].value = String(value).replace('.', ',');
+        measureInputs[m.id].classList.remove('invalid');
+        count++;
+      }
+      if (remember.checked) {
+        let changed = false;
+        for (const row of rows) {
+          if (!row.touched && !(row.measureId && row.source === 'vorschlag')) continue;
+          settings.srMappings[SrMap.keyOf(row.item)] = row.measureId;
+          changed = true;
+        }
+        if (changed) await persistSettings(true);
+      }
+      dlg.close();
+      refresh(true);
+      toast(`${count} Messwert${count === 1 ? '' : 'e'} übernommen`);
+      if (skipped.length) alert(`Nicht übernommen:\n\n${skipped.join('\n')}`);
+    }
   }
 
   // ---------- Befund ----------
 
   function generateReport() {
-    const text = window.EchoReport.generate({
+    const text = Report.generate({
       values: computedValues(),
       assess: state.assess,
-      settings: { ...settings, showPulmonary: state.showPk },
+      settings: { ...settings, modules: state.modules },
+      previous: state.compare ? previousComputed() : null,
     });
     $('#report').value = text;
     state.reportText = text;
@@ -256,15 +601,14 @@
     for (const input of document.querySelectorAll('[data-p]')) input.value = state.patient[input.dataset.p] || '';
     for (const [id, input] of Object.entries(measureInputs)) {
       const v = state.values[id];
-      const m = MEASURES.find((x) => x.id === id);
       input.value = typeof v === 'number' ? String(v).replace('.', ',') : '';
       input.classList.remove('invalid');
-      void m;
     }
     $('#report').value = state.reportText || '';
     autoSet = new Set();
     refresh(false);
     setDirty(false);
+    lookupPrevious();
   }
 
   function confirmDiscard() {
@@ -280,17 +624,83 @@
     }
     state.reportText = $('#report').value;
     const saved = await api.saveRecord({
-      id: state.id, created: state.created, patient: p, values: state.values,
-      assess: state.assess, manual: state.manual, showPk: state.showPk, reportText: state.reportText, gdt: state.gdt,
+      id: state.id, created: state.created, patient: p, values: state.values, assess: state.assess,
+      manual: state.manual, modules: state.modules, reportText: state.reportText, gdt: state.gdt,
     });
     state.id = saved.id;
     state.created = saved.created;
     if (p.untersucher && p.untersucher !== settings.lastExaminer) {
       settings.lastExaminer = p.untersucher;
-      api.saveSettings(settings);
+      persistSettings(false);
     }
     setDirty(false);
     toast('Befund gespeichert');
+  }
+
+  function stateFromRecord(rec) {
+    const base = emptyState();
+    const next = {
+      ...base,
+      ...rec,
+      patient: { ...base.patient, ...rec.patient },
+      modules: rec.modules ? { ...base.modules, ...rec.modules } : { pk: !!rec.showPk, stress: false, tee: false },
+      compare: base.compare,
+      previous: null,
+    };
+    delete next.showPk;
+    return next;
+  }
+
+  async function openArchive(initialSearch) {
+    const dialog = $('#archive-dialog');
+    const list = $('#archive-list');
+    const search = $('#archive-search');
+    $('#archive-path').textContent = await api.archiveDir();
+    let records = await api.listRecords();
+
+    const render = () => {
+      const q = search.value.trim().toLowerCase();
+      const rows = records.filter((r) => {
+        const p = r.patient || {};
+        return !q || [p.name, p.vorname, p.patId, deDate(p.datum), deDate(p.geburtsdatum)].join(' ').toLowerCase().includes(q);
+      });
+      list.textContent = '';
+      if (!rows.length) { list.append(h('p', { class: 'hint' }, records.length ? 'Keine Treffer.' : 'Noch keine Befunde gespeichert.')); return; }
+      list.append(h('table', {},
+        h('thead', {}, h('tr', {}, ['Untersuchung', 'Name', 'Geb.-Datum', 'Pat.-ID', 'Geändert', ''].map((t) => h('th', {}, t)))),
+        h('tbody', {}, rows.map((r) => {
+          const p = r.patient || {};
+          return h('tr', { class: 'clickable', ondblclick: () => openRecord(r.id) },
+            h('td', {}, deDate(p.datum)),
+            h('td', {}, [p.name, p.vorname].filter(Boolean).join(', ')),
+            h('td', {}, deDate(p.geburtsdatum)),
+            h('td', {}, p.patId || ''),
+            h('td', {}, new Date(r.updated).toLocaleString('de-DE')),
+            h('td', {},
+              h('button', { onclick: () => openRecord(r.id) }, 'Öffnen'), ' ',
+              h('button', { onclick: async () => {
+                if (!confirm('Befund in den Papierkorb verschieben?')) return;
+                await api.deleteRecord(r.id);
+                records = records.filter((x) => x.id !== r.id);
+                if (state.id === r.id) { state.id = null; setDirty(true); }
+                render();
+              } }, 'Löschen')));
+        }))));
+    };
+
+    async function openRecord(id) {
+      if (!confirmDiscard()) return;
+      const rec = await api.loadRecord(id);
+      if (!rec) { toast('Befund konnte nicht geladen werden'); return; }
+      state = stateFromRecord(rec);
+      loadIntoUI();
+      dialog.close();
+    }
+
+    search.oninput = render;
+    search.value = typeof initialSearch === 'string' ? initialSearch : '';
+    render();
+    dialog.showModal();
   }
 
   // ---------- Praxissoftware (GDT) ----------
@@ -379,13 +789,8 @@
     fillPrintView();
     const values = computedValues();
     const measures = MEASURES
-      .filter((m) => !['groesse', 'gewicht'].includes(m.id) && typeof values[m.id] === 'number' && Number.isFinite(values[m.id]))
-      .map((m) => ({
-        id: (m.abbr || m.id).replace(/[^A-Za-z0-9]/g, '').slice(0, 20) || m.id,
-        label: m.label,
-        value: values[m.id].toFixed(m.dec),
-        unit: m.unit,
-      }));
+      .filter((m) => !['groesse', 'gewicht', 'age'].includes(m.id) && isNum(values[m.id]))
+      .map((m) => ({ id: m.id.toUpperCase().slice(0, 20), label: m.label, value: values[m.id].toFixed(m.dec), unit: m.unit }));
     const res = await api.gdtSend({
       patient: p,
       reportText: $('#report').value,
@@ -406,65 +811,25 @@
     toast(`Befund an ${name} übergeben`);
   }
 
-  async function openArchive(initialSearch) {
-    const dialog = $('#archive-dialog');
-    const list = $('#archive-list');
-    const search = $('#archive-search');
-    $('#archive-path').textContent = await api.archiveDir();
-    let records = await api.listRecords();
+  // ---------- Update-Hinweis ----------
 
-    const render = () => {
-      const q = search.value.trim().toLowerCase();
-      const rows = records.filter((r) => {
-        const p = r.patient || {};
-        return !q || [p.name, p.vorname, p.patId, deDate(p.datum), deDate(p.geburtsdatum)].join(' ').toLowerCase().includes(q);
-      });
-      list.textContent = '';
-      if (!rows.length) { list.append(h('p', { class: 'hint' }, records.length ? 'Keine Treffer.' : 'Noch keine Befunde gespeichert.')); return; }
-      list.append(h('table', {},
-        h('thead', {}, h('tr', {}, ['Untersuchung', 'Name', 'Geb.-Datum', 'Pat.-ID', 'Geändert', ''].map((t) => h('th', {}, t)))),
-        h('tbody', {}, rows.map((r) => {
-          const p = r.patient || {};
-          return h('tr', { class: 'clickable', ondblclick: () => openRecord(r.id) },
-            h('td', {}, deDate(p.datum)),
-            h('td', {}, [p.name, p.vorname].filter(Boolean).join(', ')),
-            h('td', {}, deDate(p.geburtsdatum)),
-            h('td', {}, p.patId || ''),
-            h('td', {}, new Date(r.updated).toLocaleString('de-DE')),
-            h('td', {},
-              h('button', { onclick: () => openRecord(r.id) }, 'Öffnen'), ' ',
-              h('button', { onclick: async () => {
-                if (!confirm('Befund in den Papierkorb verschieben?')) return;
-                await api.deleteRecord(r.id);
-                records = records.filter((x) => x.id !== r.id);
-                if (state.id === r.id) { state.id = null; setDirty(true); }
-                render();
-              } }, 'Löschen')));
-        }))));
-    };
-
-    async function openRecord(id) {
-      if (!confirmDiscard()) return;
-      const rec = await api.loadRecord(id);
-      if (!rec) { toast('Befund konnte nicht geladen werden'); return; }
-      state = { ...emptyState(), ...rec, patient: { ...emptyState().patient, ...rec.patient } };
-      loadIntoUI();
-      dialog.close();
-    }
-
-    search.oninput = render;
-    search.value = typeof initialSearch === 'string' ? initialSearch : '';
-    render();
-    dialog.showModal();
+  function showUpdate(info) {
+    if (!info || info.status !== 'available') return;
+    $('#update-text').textContent = `Neue Version ${info.version} von Echobefund verfügbar (installiert: ${info.current}).`;
+    $('#update-open').onclick = () => api.openRelease(info.url);
+    $('#update-later').onclick = () => { $('#update-banner').hidden = true; };
+    $('#update-banner').hidden = false;
   }
 
   // ---------- Start ----------
 
   function bindUI() {
+    const PREV_KEYS = ['patId', 'name', 'vorname', 'geburtsdatum', 'datum'];
     for (const input of document.querySelectorAll('[data-p]')) {
       input.addEventListener('input', () => {
         state.patient[input.dataset.p] = input.value;
         refresh(true);
+        if (PREV_KEYS.includes(input.dataset.p)) schedulePreviousLookup();
       });
     }
     $('#report').addEventListener('input', () => setDirty(true));
@@ -487,13 +852,25 @@
       refresh(true);
       toast('Automatische Bewertung angewendet');
     };
+    $('#btn-presets').onclick = (e) => {
+      e.stopPropagation();
+      const menu = $('#preset-menu');
+      if (menu.hidden) { renderPresetMenu(); menu.hidden = false; } else menu.hidden = true;
+    };
+    document.addEventListener('click', (e) => { if (!e.target.closest('#preset-menu')) hidePresetMenu(); });
+    $('#prev-show').onclick = showPreviousReport;
+    $('#prev-compare').onchange = (e) => { state.compare = e.target.checked; };
     $('#btn-settings').onclick = () => window.EchoSettingsUI.open(settings, {
       api,
       onSave: async (s) => {
+        const previousPath = settings.profile.path;
         settings = s;
-        await api.saveSettings(s);
-        updateGdtUI();
-        refresh(false);
+        if (s.profile.path && s.profile.path !== previousPath && !(await connectProfile(s.profile.path))) {
+          settings.profile.path = previousPath;
+        }
+        await persistSettings(true);
+        refreshAll();
+        lookupPrevious();
         toast('Einstellungen gespeichert');
       },
     });
@@ -504,10 +881,20 @@
       if (mod && e.key === 'Enter') { e.preventDefault(); generateReport(); }
       if (mod && e.key.toLowerCase() === 's') { e.preventDefault(); save(); }
     });
+    window.addEventListener('focus', () => { syncProfile(); });
   }
 
   async function init() {
     settings = merge(await api.loadSettings());
+    if (settings.profile.path) {
+      const r = await api.profileRead(settings.profile.path);
+      if (r.ok) {
+        applyShared(r.data);
+        profileStamp = r.data.stamp || null;
+      } else if (!r.missing) {
+        setTimeout(() => toast('Gemeinsames Profil nicht erreichbar – es werden die lokal gespeicherten Einstellungen verwendet'), 800);
+      }
+    }
     state = emptyState();
     buildMeasures();
     buildAssessments();
@@ -516,6 +903,7 @@
     updateGdtUI();
     api.onGdtRequest(handleGdtRequest);
     api.onGdtStatus((s) => { gdtStatus = s; updateGdtUI(); });
+    api.onUpdateAvailable(showUpdate);
     $('#gdt-badge').onclick = () => api.openGuide($('#gdt-badge').dataset.anchor);
     const initial = await api.gdtReady();
     if (initial) { gdtStatus = initial; updateGdtUI(); }

@@ -1,8 +1,8 @@
-// Standard-Einstellungen: Normwerte (Grenzwerte) und Textbausteine.
+// Standard-Einstellungen: Normwerte (Grenzwerte), Textbausteine, Vorlagen.
 // Alles hier ist in der App unter "Einstellungen" editierbar.
 //
 // WICHTIG: Die Grenzwerte orientieren sich an den ASE/EACVI-Empfehlungen
-// (Lang et al. 2015, Baumgartner et al. 2017, Nagueh et al. 2016, ESC/ERS 2022).
+// (Lang et al. 2015, Baumgartner et al. 2017, Zoghbi et al. 2017, Nagueh et al. 2016, ESC/ERS 2022).
 // Wo Leitlinien nur einen Normbereich angeben, sind die Abstufungen Vorschläge
 // (siehe `note`). Sie müssen vom verantwortlichen Arzt geprüft werden.
 (function (root, factory) {
@@ -14,6 +14,7 @@
   // mode: 'first' = erste Regel mit vorhandenem Messwert gilt; 'max' = schwerster Grad aller Regeln.
   // rule.dir: 'high' = Grad gilt ab Wert >= at; 'low' = Grad gilt ab Wert <= at.
   // rule.levels: aufsteigend nach Schweregrad; bei sex:true getrennt {m: [...], w: [...]}.
+  // base: Wert, wenn ein Messwert vorliegt, aber keine Stufe erreicht ist.
   const NORMS = {
     lvSize: {
       base: 'normal', mode: 'first',
@@ -53,9 +54,10 @@
       ],
     },
     rvFunction: {
-      base: 'normal', mode: 'first', note: 'Leitlinie: TAPSE < 17 mm pathologisch. Abstufungen sind Vorschläge.',
+      base: 'normal', mode: 'max', note: 'Leitlinie: TAPSE < 17 mm bzw. RV-FAC < 35 % pathologisch. Abstufungen sind Vorschläge; der schwerere Befund gilt.',
       rules: [
         { measure: 'tapse', dir: 'low', levels: [{ at: 16, value: 'leichtgradig' }, { at: 13, value: 'mittelgradig' }, { at: 9, value: 'hochgradig' }] },
+        { measure: 'rvFac', dir: 'low', levels: [{ at: 34, value: 'leichtgradig' }, { at: 24, value: 'mittelgradig' }, { at: 17, value: 'hochgradig' }] },
       ],
     },
     laSize: {
@@ -81,11 +83,35 @@
         { measure: 'avPmean', dir: 'high', levels: [{ at: 20, value: 'mittelgradig' }, { at: 40, value: 'hochgradig' }] },
       ],
     },
+    avInsuff: {
+      base: 'leichtgradig', mode: 'max', note: 'Quantitative Kriterien nach ASE 2017. Wird nur verwendet, wenn Insuffizienz-Parameter gemessen wurden; der schwerere Befund gilt.',
+      rules: [
+        { measure: 'arEroa', dir: 'high', levels: [{ at: 0.10, value: 'leicht- bis mittelgradig' }, { at: 0.20, value: 'mittel- bis hochgradig' }, { at: 0.30, value: 'hochgradig' }] },
+        { measure: 'arRvol', dir: 'high', levels: [{ at: 30, value: 'leicht- bis mittelgradig' }, { at: 45, value: 'mittel- bis hochgradig' }, { at: 60, value: 'hochgradig' }] },
+        { measure: 'arVc', dir: 'high', levels: [{ at: 3, value: 'mittelgradig' }, { at: 6.1, value: 'hochgradig' }] },
+        { measure: 'arPht', dir: 'low', levels: [{ at: 500, value: 'mittelgradig' }, { at: 199, value: 'hochgradig' }] },
+      ],
+    },
     mvStenosis: {
       base: 'keine', mode: 'max', note: 'Abstufung der MÖF > 1,5 cm² als leichtgradig ist ein Vorschlag.',
       rules: [
         { measure: 'mva', dir: 'low', levels: [{ at: 2.0, value: 'leichtgradig' }, { at: 1.5, value: 'mittelgradig' }, { at: 0.9, value: 'hochgradig' }] },
         { measure: 'mvPmean', dir: 'high', levels: [{ at: 5, value: 'mittelgradig' }, { at: 11, value: 'hochgradig' }] },
+      ],
+    },
+    mvInsuff: {
+      base: 'leichtgradig', mode: 'max', note: 'Quantitative Kriterien der primären Mitralinsuffizienz (ASE 2017). Bei sekundärer MI gelten teils niedrigere Schwellen. Der schwerere Befund gilt.',
+      rules: [
+        { measure: 'mrEroa', dir: 'high', levels: [{ at: 0.20, value: 'leicht- bis mittelgradig' }, { at: 0.30, value: 'mittel- bis hochgradig' }, { at: 0.40, value: 'hochgradig' }] },
+        { measure: 'mrRvol', dir: 'high', levels: [{ at: 30, value: 'leicht- bis mittelgradig' }, { at: 45, value: 'mittel- bis hochgradig' }, { at: 60, value: 'hochgradig' }] },
+        { measure: 'mrVc', dir: 'high', levels: [{ at: 3, value: 'mittelgradig' }, { at: 7, value: 'hochgradig' }] },
+      ],
+    },
+    tvInsuff: {
+      base: 'leichtgradig', mode: 'max', note: 'Vena contracta ≥ 7 mm bzw. EROA ≥ 0,40 cm² hochgradig (ASE 2017). Zwischenstufen sind Vorschläge.',
+      rules: [
+        { measure: 'trVc', dir: 'high', levels: [{ at: 3, value: 'mittelgradig' }, { at: 7, value: 'hochgradig' }] },
+        { measure: 'trEroa', dir: 'high', levels: [{ at: 0.20, value: 'mittelgradig' }, { at: 0.40, value: 'hochgradig' }] },
       ],
     },
     pvStenosis: {
@@ -106,7 +132,7 @@
       rules: [{ measure: 'vci', dir: 'high', levels: [{ at: 22, value: 'erweitert' }] }],
     },
     ph: {
-      base: 'geringe Wahrscheinlichkeit', mode: 'first', note: 'Nur TR Vmax (ESC/ERS 2022). Weitere PH-Zeichen bitte manuell berücksichtigen.',
+      base: 'geringe Wahrscheinlichkeit', mode: 'first', note: 'Nur TR Vmax (ESC/ERS 2022). Weitere PH-Zeichen (z. B. TAPSE/sPAP < 0,55) bitte manuell berücksichtigen.',
       rules: [
         { measure: 'trVmax', dir: 'high', levels: [{ at: 2.9, value: 'mittlere Wahrscheinlichkeit' }, { at: 3.5, value: 'hohe Wahrscheinlichkeit' }] },
       ],
@@ -118,7 +144,7 @@
   //   {grade}/{Grade} "leichtgradige" | {grader}/{Grader} "leichtgradiger" |
   //   {segmente} Wandbewegungsstörungen | {feld:ID} Textfragment eines anderen Feldes.
   // _grad: Vorlage für alle Schweregrade (leichtgradig ... hochgradig).
-  // _wrap: Hülle für Mehrfachauswahl-Fragmente mit {liste}.
+  // _wrap: Hülle für Mehrfachauswahl-Fragmente mit {liste}; _satz: ein Satz aus allen gewählten Einträgen.
   const TEMPLATES = {
     qualitaet: {
       'gut': 'Gute Schallbedingungen.',
@@ -221,8 +247,8 @@
     },
     avInsuff: {
       'keine': 'Keine Aortenklappeninsuffizienz.',
-      'minimal': 'Minimale Aortenklappeninsuffizienz.',
-      _grad: '{Grade} Aortenklappeninsuffizienz.',
+      'minimal': 'Minimale Aortenklappeninsuffizienz{m}.',
+      _grad: '{Grade} Aortenklappeninsuffizienz{m}.',
     },
     avInsuffValv: {
       'keine': 'Keine valvuläre Insuffizienz.',
@@ -257,8 +283,8 @@
     },
     mvInsuff: {
       'keine': 'Keine Mitralklappeninsuffizienz.',
-      'minimal': 'Minimale Mitralklappeninsuffizienz.',
-      _grad: '{Grade} Mitralklappeninsuffizienz{feld:mvJet}.',
+      'minimal': 'Minimale Mitralklappeninsuffizienz{m}.',
+      _grad: '{Grade} Mitralklappeninsuffizienz{feld:mvJet}{m}.',
     },
     mvJet: {
       'zentral': ' mit zentralem Jet',
@@ -340,20 +366,139 @@
       'Sonde im RA': 'Schrittmacher-/ICD-Sonde im rechten Vorhof.',
       'Sonde im RV': 'Schrittmacher-/ICD-Sonde im rechten Ventrikel.',
     },
+
+    // ---------- Stressecho ----------
+    stressType: {
+      'Fahrradergometrie': 'Stressechokardiographie mittels Fahrradergometrie{m}.',
+      'Laufband': 'Stressechokardiographie mittels Laufbandbelastung{m}.',
+      'Dobutamin': 'Dobutamin-Stressechokardiographie{m}.',
+      'Dipyridamol': 'Dipyridamol-Stressechokardiographie{m}.',
+      'Adenosin': 'Adenosin-Stressechokardiographie{m}.',
+    },
+    stressTarget: {
+      'erreicht': 'Zielfrequenz erreicht{m}.',
+      'nicht erreicht': 'Zielfrequenz nicht erreicht{m}.',
+    },
+    stressStop: {
+      _satz: 'Abbruch wegen {liste}.',
+      'Erschöpfung': 'muskulärer Erschöpfung',
+      'Angina pectoris': 'Angina pectoris',
+      'Dyspnoe': 'Dyspnoe',
+      'Blutdruckanstieg': 'hypertensiver Blutdruckreaktion',
+      'Blutdruckabfall': 'Blutdruckabfall',
+      'Rhythmusstörungen': 'Rhythmusstörungen',
+      'neue Wandbewegungsstörung': 'neu aufgetretener Wandbewegungsstörung',
+    },
+    stressSymptoms: {
+      'keine': 'Keine Beschwerden unter Belastung{m}.',
+      'Angina pectoris': 'Angina pectoris unter Belastung{m}.',
+      'Dyspnoe': 'Dyspnoe unter Belastung{m}.',
+      'Schwindel': 'Schwindel unter Belastung{m}.',
+    },
+    stressEcg: {
+      'keine ischämietypischen Veränderungen': 'Keine ischämietypischen EKG-Veränderungen.',
+      'ST-Senkungen': 'Ischämietypische ST-Streckensenkungen unter Belastung.',
+      'nicht beurteilbar': 'EKG unter Belastung nicht beurteilbar.',
+    },
+    stressWma: {
+      'normale Kontraktilitätszunahme': 'Unter Belastung normale Zunahme der Wandbewegung ohne neu aufgetretene Wandbewegungsstörungen{m}.',
+      'neu aufgetretene Wandbewegungsstörungen': 'Unter Belastung neu aufgetretene Wandbewegungsstörungen: {segmente}{m}.',
+      'nicht beurteilbar': 'Wandbewegung unter Belastung nicht sicher beurteilbar.',
+    },
+    stressResult: {
+      'kein Ischämienachweis': 'Kein Nachweis einer belastungsinduzierten Ischämie.',
+      'Ischämienachweis': 'Nachweis einer belastungsinduzierten Ischämie.',
+      'nicht aussagekräftig': 'Stressechokardiographie nicht aussagekräftig.',
+    },
+
+    // ---------- TEE ----------
+    teeSedation: {
+      'keine Sedierung': 'Transösophageale Echokardiographie ohne Sedierung.',
+      'Rachenanästhesie': 'Transösophageale Echokardiographie in Rachenanästhesie.',
+      'Propofol-Sedierung': 'Transösophageale Echokardiographie unter Propofol-Sedierung.',
+      'Midazolam-Sedierung': 'Transösophageale Echokardiographie unter Midazolam-Sedierung.',
+    },
+    teeComplications: {
+      'keine': 'Komplikationslose Untersuchung.',
+      'Sättigungsabfall': 'Vorübergehender Sättigungsabfall während der Untersuchung.',
+      'Schluckbeschwerden': 'Schluckbeschwerden nach der Untersuchung.',
+      'sonstige': 'Komplikation während der Untersuchung (siehe Ergänzungen).',
+    },
+    teeLaa: {
+      'kein Thrombus': 'Kein Thrombus im linken Vorhof und Vorhofohr{m}.',
+      'spontaner Echokontrast': 'Spontaner Echokontrast im linken Vorhof/Vorhofohr, kein Thrombus{m}.',
+      'Sludge': 'Sludge im linken Vorhofohr{m}.',
+      'Thrombus': 'Thrombus im linken Vorhofohr{m}.',
+    },
+    teeIas: {
+      'intakt': 'Intaktes Vorhofseptum{feld:teeShunt}.',
+      'PFO': 'Persistierendes Foramen ovale{feld:teeShunt}.',
+      'ASD': 'Vorhofseptumdefekt{feld:teeShunt}.',
+      'Vorhofseptumaneurysma': 'Vorhofseptumaneurysma{feld:teeShunt}.',
+      'St.p. Verschluss': 'Zustand nach interventionellem Vorhofseptumverschluss{feld:teeShunt}.',
+    },
+    teeShunt: {
+      'kein Shunt': ', kein Shunt im Kontrastmittelversuch',
+      'Shunt in Ruhe': ', Rechts-links-Shunt bereits in Ruhe',
+      'Shunt nach Valsalva': ', Rechts-links-Shunt nach Valsalva-Manöver',
+      'nicht durchgeführt': '',
+    },
+    teeAorta: {
+      'keine': 'Keine relevante Atheromatose der thorakalen Aorta.',
+      'Plaques < 4 mm': 'Plaques der thorakalen Aorta < 4 mm.',
+      'Plaques ≥ 4 mm': 'Plaques der thorakalen Aorta ≥ 4 mm.',
+      'mobile Plaques': 'Mobile Plaques der thorakalen Aorta.',
+    },
+    teeEndocarditis: {
+      'kein Hinweis auf Vegetationen': 'Kein Hinweis auf endokarditische Vegetationen.',
+      'Vegetation': 'Nachweis einer Vegetation{feld:teeEndoSite}.',
+      'Abszess': 'Nachweis eines Abszesses{feld:teeEndoSite}.',
+    },
+    teeEndoSite: {
+      _wrap: ' an {liste}',
+      'Aortenklappe': 'der Aortenklappe',
+      'Mitralklappe': 'der Mitralklappe',
+      'Trikuspidalklappe': 'der Trikuspidalklappe',
+      'Pulmonalklappe': 'der Pulmonalklappe',
+      'Prothese': 'der Prothese',
+      'Sonde': 'der Sonde',
+    },
   };
 
   // Felder, die nur als Fragment in andere Bausteine eingesetzt werden.
-  const FRAGMENT_FIELDS = ['diastolicReason', 'mvJet', 'pericardExtras', 'vciCollapse'];
+  const FRAGMENT_FIELDS = ['diastolicReason', 'mvJet', 'pericardExtras', 'vciCollapse', 'teeShunt', 'teeEndoSite'];
+
+  // Schnellvorlagen: setzen Beurteilungen mit einem Klick (automatische Bewertung hat weiterhin Vorrang)
+  const PRESETS = [
+    {
+      id: 'normalbefund', name: 'Normalbefund',
+      assess: {
+        rhythmus: 'Sinusrhythmus', lvSize: 'normal', lvHypertrophy: 'normal', lvFunction: 'normal', wma: 'keine', diastolic: 'normal',
+        rvSize: 'normal', rvFunction: 'normal', laSize: 'normal', raSize: 'normal',
+        avMorph: 'unauffällig', avStenosis: 'keine', avInsuff: 'keine',
+        mvMorph: 'unauffällig', mvStenosis: 'keine', mvInsuff: 'keine',
+        tvMorph: 'unauffällig', tvStenosis: 'keine', tvInsuff: 'keine',
+        pericard: 'kein', aorta: 'normal', vciSize: 'normal', ph: 'geringe Wahrscheinlichkeit',
+      },
+    },
+  ];
+
+  // Einstellungen, die bei Mehrplatzbetrieb im gemeinsamen Profil liegen (alle anderen bleiben lokal)
+  const SHARED_KEYS = ['measuresMode', 'sectionHeadings', 'bsaFormula', 'autoGrade', 'modules', 'practice', 'summary', 'comparison', 'norms', 'templates', 'presets', 'srMappings'];
 
   const SETTINGS = {
-    version: 1,
+    version: 2,
     measuresMode: 'text',     // 'text' = in Klammern im Text | 'liste' = Liste am Beginn | 'keine'
     sectionHeadings: true,
     bsaFormula: 'dubois',     // 'dubois' | 'mosteller'
     autoGrade: true,
-    showPulmonary: false,
+    modules: { pk: false, stress: false, tee: false }, // standardmäßig eingeblendete Zusatzmodule
+    summary: { enabled: true, title: 'Beurteilung', normalText: 'Echokardiographischer Normalbefund.' },
+    comparison: { enabled: true, inReport: true },
     practice: { name: '', address: '', footer: '' },
     archiveDir: '',           // leer = Standardordner im Benutzerverzeichnis der App
+    updates: { check: true }, // einmal täglich bei GitHub nach neuer Version fragen (keine Patientendaten)
+    profile: { path: '' },    // gemeinsames Profil für mehrere Arbeitsplätze (JSON-Datei)
     // Anbindung an die Praxissoftware (z. B. EOSWIN) über GDT 2.1
     gdt: {
       enabled: false,
@@ -377,7 +522,9 @@
     },
     norms: NORMS,
     templates: TEMPLATES,
+    presets: PRESETS,
+    srMappings: {},           // DICOM-SR: gemerkte Zuordnung "Bezeichnung|Einheit" → Messwert-ID ('' = ignorieren)
   };
 
-  return { NORMS, TEMPLATES, FRAGMENT_FIELDS, SETTINGS };
+  return { NORMS, TEMPLATES, FRAGMENT_FIELDS, PRESETS, SHARED_KEYS, SETTINGS };
 });

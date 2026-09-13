@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#c63249"/>
+      <stop offset="1" stop-color="#8f1b2d"/>
+    </linearGradient>
+  </defs>
+  <rect x="64" y="64" width="896" height="896" rx="200" fill="url(#bg)"/>
+  <!-- Herz -->
+  <path d="M512 800 C 300 660 196 540 196 410 C 196 312 270 238 364 238 C 428 238 480 272 512 326 C 544 272 596 238 660 238 C 754 238 828 312 828 410 C 828 540 724 660 512 800 Z"
+        fill="#ffffff" opacity="0.96"/>
+  <!-- Echo-Kurve -->
+  <polyline points="236,500 390,500 430,430 470,600 520,360 570,560 606,500 788,500"
+            fill="none" stroke="#b3263a" stroke-width="34" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

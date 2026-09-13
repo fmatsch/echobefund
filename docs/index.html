@@ -1,0 +1,142 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Echobefund – Befundassistent für die Echokardiographie</title>
+  <meta name="description" content="Kostenlose Desktop-App für macOS und Windows: Messwerte eingeben, automatisch graduieren, Befundtext erzeugen – mit GDT-Anbindung an Praxissoftware wie EOSWIN.">
+  <link rel="icon" href="icon.png">
+  <style>
+    :root {
+      --bg: #f6f7f9; --panel: #ffffff; --text: #1d2733; --muted: #5c6878; --line: #dde2e9;
+      --accent: #b3263a; --accent-2: #8f1b2d; --accent-soft: #fbe9ec; --blue: #2f6fb3;
+      --shadow: 0 20px 50px rgba(20, 28, 40, .12);
+    }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #11161d; --panel: #19202a; --text: #e6eaf0; --muted: #9aa5b4; --line: #2a3340; --accent-soft: #3a1c23; --shadow: 0 20px 50px rgba(0,0,0,.4); }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    a { color: var(--accent); }
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    header.hero { padding: 72px 0 40px; text-align: center; }
+    .hero img.logo { width: 96px; height: 96px; }
+    h1 { font-size: clamp(2.2rem, 5vw, 3.2rem); margin: 12px 0 6px; letter-spacing: -.02em; }
+    .tagline { font-size: 1.2rem; color: var(--muted); max-width: 680px; margin: 0 auto 28px; }
+    .downloads { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; padding: 12px 22px; border-radius: 10px; text-decoration: none; font-weight: 600; min-width: 230px; }
+    .btn small { font-weight: 400; opacity: .85; font-size: .8rem; }
+    .btn.primary { background: var(--accent); color: #fff; }
+    .btn.primary:hover { background: var(--accent-2); }
+    .btn.secondary { background: var(--panel); color: var(--text); border: 1px solid var(--line); }
+    .meta { margin-top: 14px; color: var(--muted); font-size: .9rem; }
+    .shot { margin: 40px auto 0; border-radius: 12px; overflow: hidden; border: 1px solid var(--line); box-shadow: var(--shadow); }
+    .shot img { display: block; width: 100%; height: auto; }
+    section { padding: 56px 0; }
+    h2 { font-size: 1.7rem; margin: 0 0 20px; letter-spacing: -.01em; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; }
+    .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 20px; }
+    .card h3 { margin: 0 0 6px; font-size: 1.05rem; }
+    .card p { margin: 0; color: var(--muted); font-size: .95rem; }
+    .steps { counter-reset: s; list-style: none; padding: 0; margin: 0; display: grid; gap: 12px; }
+    .steps li { counter-increment: s; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px 16px 16px 60px; position: relative; }
+    .steps li::before { content: counter(s); position: absolute; left: 16px; top: 16px; width: 30px; height: 30px; border-radius: 50%; background: var(--accent-soft); color: var(--accent); font-weight: 700; display: grid; place-items: center; }
+    .table-wrap { overflow-x: auto; }
+    table { border-collapse: collapse; width: 100%; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+    th, td { text-align: left; padding: 10px 14px; border-bottom: 1px solid var(--line); font-size: .95rem; }
+    th { color: var(--muted); font-weight: 600; width: 38%; }
+    code { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: .9em; background: var(--accent-soft); padding: 1px 5px; border-radius: 4px; }
+    .notice { background: var(--accent-soft); border-left: 4px solid var(--accent); border-radius: 8px; padding: 16px 20px; }
+    .two { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+    footer { padding: 32px 0 48px; color: var(--muted); font-size: .9rem; border-top: 1px solid var(--line); }
+  </style>
+</head>
+<body>
+  <header class="hero">
+    <div class="wrap">
+      <img class="logo" src="icon.png" alt="">
+      <h1>Echobefund</h1>
+      <p class="tagline">Befundassistent für die Echokardiographie. Messwerte eingeben, automatisch graduieren lassen, Befundtext erzeugen – und direkt an die Praxissoftware übergeben.</p>
+      <div class="downloads">
+        <a class="btn primary" href="https://github.com/fmatsch/echobefund/releases/latest/download/Echobefund-mac-universal.zip">
+          Download für macOS <small>Intel &amp; Apple Silicon · ZIP</small>
+        </a>
+        <a class="btn primary" href="https://github.com/fmatsch/echobefund/releases/latest/download/Echobefund-windows-portable.exe">
+          Download für Windows <small>64 Bit · startet ohne Installation</small>
+        </a>
+      </div>
+      <p class="meta">Kostenlos &amp; quelloffen (MIT) · <a href="https://github.com/fmatsch/echobefund">Quellcode auf GitHub</a> · <a href="https://github.com/fmatsch/echobefund/releases">alle Versionen</a></p>
+      <div class="shot"><img src="screenshot.png" alt="Echobefund mit Messwerten, Beurteilungen und erzeugtem Befundtext (Beispieldaten)" width="1440" height="900"></div>
+    </div>
+  </header>
+
+  <section>
+    <div class="wrap">
+      <h2>Funktionen</h2>
+      <div class="grid">
+        <div class="card"><h3>Automatische Graduierung</h3><p>Schweregrade werden aus den Messwerten vorgeschlagen – geschlechtsspezifisch, nach editierbaren Grenzwerten. Ein Klick überschreibt den Vorschlag.</p></div>
+        <div class="card"><h3>Befundtext per Klick</h3><p>Formulierungen aus anpassbaren Textbausteinen, Messwerte im Text oder als Liste. Der Text landet sofort in der Zwischenablage.</p></div>
+        <div class="card"><h3>Berechnungen</h3><p>KOF, LV-Masse/LVMI, RWT, LAVI, E/A, E/e′, RAP, sPAP, AÖF nach Kontinuitätsgleichung, DVI, Schlagvolumen und HZV.</p></div>
+        <div class="card"><h3>Wandbewegung</h3><p>Anklickbares 17-Segment-Modell für Hypo-, A- und Dyskinesien sowie Aneurysmen.</p></div>
+        <div class="card"><h3>GDT-Anbindung</h3><p>Patientendaten aus der Praxissoftware übernehmen und den Befund zurück in die Kartei senden – z. B. mit EOSWIN.</p></div>
+        <div class="card"><h3>Archiv, PDF &amp; Druck</h3><p>Befunde lokal speichern und wiederfinden, als PDF exportieren oder mit Praxis-Briefkopf drucken.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Installation</h2>
+      <div class="two">
+        <div class="card">
+          <h3>macOS</h3>
+          <p>ZIP öffnen und <code>Echobefund.app</code> in den Ordner „Programme“ ziehen. Beim ersten Start: <strong>Rechtsklick → Öffnen</strong> und bestätigen (die App ist nicht bei Apple notarisiert).</p>
+        </div>
+        <div class="card">
+          <h3>Windows</h3>
+          <p>Die <code>.exe</code> kann direkt gestartet werden, z. B. aus <code>C:\Programme\Echobefund\</code>. Bei der SmartScreen-Warnung: <strong>Weitere Informationen → Trotzdem ausführen</strong>.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Anbindung an EOSWIN (GDT)</h2>
+      <p>Echobefund arbeitet als GDT-2.1-Gerät. Die Praxissoftware legt einen Auftrag in einem gemeinsamen Ordner ab und startet Echobefund; der fertige Befund geht per Klick zurück in die Kartei.</p>
+      <ol class="steps">
+        <li><strong>In Echobefund:</strong> Einstellungen → „Praxissoftware (GDT)“ → Anbindung aktivieren, Austauschordner wählen (z. B. <code>C:\GDT</code>) und „Testen“.</li>
+        <li><strong>In EOSWIN:</strong> ein GDT-Gerät mit denselben Werten anlegen (siehe Tabelle) und als Programm den Pfad zur Echobefund-<code>.exe</code> eintragen.</li>
+        <li><strong>Im Alltag:</strong> Gerät aus der Kartei aufrufen → befunden → „An EOSWIN senden“.</li>
+      </ol>
+      <div class="table-wrap" style="margin-top:16px">
+        <table>
+          <tr><th>Austauschordner</th><td>in beiden Programmen identisch, z. B. <code>C:\GDT</code> oder <code>\\SERVER\GDT</code></td></tr>
+          <tr><th>Datei EOSWIN → Echobefund</th><td><code>ECHOEOSW.GDT</code></td></tr>
+          <tr><th>Datei Echobefund → EOSWIN</th><td><code>EOSWECHO.GDT</code></td></tr>
+          <tr><th>GDT-IDs</th><td><code>ECHOBEF</code> (Echobefund) · <code>EOSWIN</code> (Praxissoftware)</td></tr>
+          <tr><th>Satzarten</th><td>6301/6302 (Auftrag) · 6310 (Befund zurück) · 6311 (Befund anzeigen)</td></tr>
+          <tr><th>Zeichensatz</th><td>automatisch wie im Auftrag (CP437, CP1252 oder 7 Bit)</td></tr>
+        </table>
+      </div>
+      <p class="meta">Alle Kennungen und Dateinamen sind in Echobefund anpassbar. Die Menüpunkte in EOSWIN können abweichen – der MCW-Support hilft mit den obigen Angaben weiter.</p>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap">
+      <h2>Wichtige Hinweise</h2>
+      <div class="notice">
+        <p><strong>Kein Medizinprodukt.</strong> Die mitgelieferten Grenzwerte orientieren sich an den ASE/EACVI- und ESC-Empfehlungen; einige Abstufungen sind Vorschläge und in der App gekennzeichnet. Grenzwerte, Textbausteine und jeder erzeugte Befund müssen von der verantwortlichen Ärztin bzw. dem verantwortlichen Arzt geprüft werden.</p>
+        <p style="margin-bottom:0"><strong>Datenschutz.</strong> Echobefund arbeitet vollständig offline und sendet keine Daten ins Internet. Archiv und Einstellungen liegen unverschlüsselt auf dem Rechner – bitte Festplattenverschlüsselung (FileVault/BitLocker) aktivieren und das Archiv in die Datensicherung der Praxis aufnehmen.</p>
+      </div>
+    </div>
+  </section>
+
+  <footer>
+    <div class="wrap">
+      Echobefund · MIT-Lizenz · <a href="https://github.com/fmatsch/echobefund">GitHub</a> · <a href="https://github.com/fmatsch/echobefund/issues">Fehler melden</a>
+    </div>
+  </footer>
+</body>
+</html>

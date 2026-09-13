@@ -1,0 +1,64 @@
+{
+  "name": "echobefund",
+  "productName": "Echobefund",
+  "version": "0.2.0",
+  "description": "Befundgenerator für Echokardiographie",
+  "author": "Echobefund",
+  "main": "src/main/main.js",
+  "scripts": {
+    "start": "electron .",
+    "test": "node --test \"test/*.test.js\"",
+    "icon": "electron scripts/make-icon.js",
+    "dist:mac": "electron-builder --mac --publish never",
+    "dist:win": "electron-builder --win --publish never",
+    "dist": "electron-builder --mac --win --publish never"
+  },
+  "build": {
+    "appId": "com.echobefund.app",
+    "productName": "Echobefund",
+    "directories": {
+      "output": "dist",
+      "buildResources": "build"
+    },
+    "files": [
+      "src/**/*",
+      "package.json"
+    ],
+    "mac": {
+      "target": [
+        {
+          "target": "zip",
+          "arch": ["universal"]
+        }
+      ],
+      "artifactName": "Echobefund-mac-universal.${ext}",
+      "category": "public.app-category.medical",
+      "icon": "build/icon.png",
+      "identity": null
+    },
+    "afterPack": "scripts/after-pack.js",
+    "win": {
+      "target": [
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "build/icon.png"
+    },
+    "portable": {
+      "artifactName": "Echobefund-windows-portable.exe"
+    }
+  },
+  "license": "MIT",
+  "homepage": "https://fmatsch.github.io/echobefund/",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/fmatsch/echobefund.git"
+  },
+  "private": true,
+  "devDependencies": {
+    "electron": "^44.3.0",
+    "electron-builder": "^26.15.3"
+  }
+}

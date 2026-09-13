@@ -1,0 +1,80 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data:">
+  <title>Echobefund</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header class="toolbar">
+      <div class="brand">Echobefund</div>
+      <div class="record-status" id="record-status"></div>
+      <span class="gdt-badge" id="gdt-badge" hidden></span>
+      <div class="spacer"></div>
+      <button id="btn-new">Neu</button>
+      <button id="btn-archive">Archiv</button>
+      <button id="btn-save" class="primary">Speichern</button>
+      <button id="btn-settings">Einstellungen</button>
+    </header>
+
+    <div class="banner" id="gdt-banner" hidden>
+      <span id="gdt-banner-text"></span>
+      <div class="spacer"></div>
+      <button id="gdt-banner-apply" class="primary">Übernehmen (ungespeicherte Änderungen verwerfen)</button>
+      <button id="gdt-banner-dismiss">Auftrag ignorieren</button>
+    </div>
+
+    <section class="patient" id="patient">
+      <label>Name <input data-p="name"></label>
+      <label>Vorname <input data-p="vorname"></label>
+      <label>Geb.-Datum <input data-p="geburtsdatum" type="date"></label>
+      <label>Pat.-ID <input data-p="patId"></label>
+      <label>Geschlecht
+        <select data-p="sex"><option value="">–</option><option value="w">weiblich</option><option value="m">männlich</option></select>
+      </label>
+      <label>Untersuchung <input data-p="datum" type="date"></label>
+      <label>Untersucher <input data-p="untersucher"></label>
+      <label class="wide">Indikation <input data-p="indikation"></label>
+    </section>
+
+    <main class="workspace">
+      <aside class="measures" id="measures"></aside>
+      <div class="assessments" id="assessments"></div>
+      <aside class="output">
+        <div class="output-inner">
+          <button id="btn-generate" class="primary big" title="Strg/⌘ + Enter">Befund erstellen</button>
+          <textarea id="report" spellcheck="true" placeholder="Hier erscheint der Befundtext …"></textarea>
+          <div class="row">
+            <button id="btn-copy">Kopieren</button>
+            <button id="btn-pdf">PDF</button>
+            <button id="btn-print">Drucken</button>
+          </div>
+          <button id="btn-gdt-send" class="primary" hidden>An Praxissoftware senden</button>
+          <button id="btn-reset-auto" class="link">Automatische Bewertung neu anwenden</button>
+        </div>
+      </aside>
+    </main>
+  </div>
+
+  <dialog id="archive-dialog">
+    <header><h2>Befundarchiv</h2><input id="archive-search" type="search" placeholder="Suche nach Name, ID, Datum …"></header>
+    <div class="archive-list" id="archive-list"></div>
+    <footer><span class="hint" id="archive-path"></span><div class="spacer"></div><button data-close>Schließen</button></footer>
+  </dialog>
+
+  <dialog id="settings-dialog"></dialog>
+
+  <div id="toast" role="status"></div>
+  <div id="print-view" aria-hidden="true"></div>
+
+  <script src="../shared/schema.js"></script>
+  <script src="../shared/defaults.js"></script>
+  <script src="../shared/calc.js"></script>
+  <script src="../shared/report.js"></script>
+  <script src="bullseye.js"></script>
+  <script src="settings.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

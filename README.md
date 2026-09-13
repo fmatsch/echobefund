@@ -85,6 +85,33 @@ Satzart 6311 („Untersuchung zeigen“) öffnet das Archiv gefiltert auf die Pa
 Die genauen Menüpunkte und Feldnamen in EOSWIN können abweichen – im Zweifel den MCW-Support
 nach „GDT-Geräteanbindung“ fragen und die Kennungen von oben durchgeben.
 
+## Programme signieren (macOS)
+
+Mit einem Apple-Developer-Konto signiert und notarisiert der Release-Workflow die macOS-App automatisch –
+dann startet sie ohne „nicht verifiziert“-Warnung. Die Zugangsdaten liegen ausschließlich als GitHub-Secrets vor.
+
+1. **Zertifikat:** In Xcode (Einstellungen → Accounts → Zertifikate verwalten) oder auf developer.apple.com ein
+   Zertifikat vom Typ **Developer ID Application** erstellen. In der Schlüsselbundverwaltung mit privatem Schlüssel
+   als `.p12` exportieren und dabei ein Export-Passwort vergeben.
+2. **API-Schlüssel für die Notarisierung:** App Store Connect → Benutzer und Zugriff → Integrationen →
+   App Store Connect API → Schlüssel erzeugen (Rolle „Developer“). `.p8` herunterladen, **Key ID** und **Issuer ID** notieren.
+3. **Secrets hinterlegen** (im Terminal, im Ordner mit den Dateien – die Werte werden dabei abgefragt bzw. aus Dateien gelesen):
+
+   ```bash
+   base64 -i DeveloperID.p12 | gh secret set MAC_CERT_P12_BASE64 --repo fmatsch/echobefund
+   gh secret set MAC_CERT_PASSWORD --repo fmatsch/echobefund
+   gh secret set APPLE_API_KEY_P8 --repo fmatsch/echobefund < AuthKey_XXXXXXXXXX.p8
+   gh secret set APPLE_API_KEY_ID --repo fmatsch/echobefund
+   gh secret set APPLE_API_ISSUER --repo fmatsch/echobefund
+   ```
+
+   Danach die `.p12`- und `.p8`-Dateien sicher verwahren bzw. vom Rechner löschen.
+4. Nächstes Release wie unten starten. Im Protokoll erscheint „Developer-ID-Zertifikat gefunden“; der Schritt
+   „Ergebnisse prüfen“ bestätigt Signatur, Notarisierung und Gatekeeper-Freigabe.
+
+**Windows:** Die portable EXE bleibt unsigniert, bis ein Code-Signing-Zertifikat vorhanden ist
+(z. B. Microsoft *Trusted Signing* oder ein OV/EV-Zertifikat). SmartScreen warnt bis dahin beim ersten Start.
+
 ## Neue Version veröffentlichen
 
 Gebaut und hochgeladen wird auf GitHub – große Uploads vom eigenen Rechner sind nicht nötig.
@@ -107,6 +134,8 @@ automatisch auf die neueste Version.
 | `src/shared/report.js` | Automatische Bewertung, Diastolik-Algorithmus, Befundtext, Beurteilung, Verlaufsvergleich |
 | `src/shared/srmap.js` | DICOM-SR: Einheiten umrechnen, Zuordnungsvorschläge |
 | `src/main/dicomsr.js` | DICOM-SR-Leser (Explicit/Implicit VR, Deflated) |
+| `src/main/archive-store.js` | Befundarchiv mit Verschlüsselung, Passwort und Wiederherstellungscode |
+| `src/renderer/security.js` | Dialoge zum Ver- und Entschlüsseln des Archivs |
 | `src/main/gdt.js` | GDT 2.1: Zeichensätze, Sätze, Dateinamen, Verbindungsstatus |
 | `src/main/` | Electron-Hauptprozess: Einstellungen, Archiv, PDF, Druck |
 | `src/renderer/` | Oberfläche |
@@ -117,8 +146,14 @@ automatisch auf die neueste Version.
   (macOS `~/Library/Application Support/Echobefund`, Windows `%APPDATA%\Echobefund`).
 - Archiv: ein JSON pro Befund in `archiv/` im selben Ordner oder in einem in den Einstellungen gewählten Ordner.
   Gelöschte Befunde landen im Papierkorb.
-- Die Daten sind **nicht** von der App verschlüsselt. Bitte FileVault (macOS) oder BitLocker (Windows) aktivieren
-  und das Archiv in das Backup-Konzept der Praxis aufnehmen (DSGVO).
+- **Verschlüsselung des Archivs** (Einstellungen → Allgemein → Archiv): AES-256-GCM pro Befund. Der Archivschlüssel
+  liegt nie im Klartext vor – er ist in `.echobefund-schluessel.json` (im Archivordner) mit dem Wiederherstellungscode
+  und optional einem Passwort eingepackt (scrypt) und auf dem Gerät zusätzlich über macOS-Schlüsselbund bzw.
+  Windows DPAPI geschützt. Ohne Passwort öffnet sich das Archiv automatisch; mit Passwort wird beim Start gefragt
+  (optional auf dem Gerät merken). Der **Wiederherstellungscode** wird nur einmal angezeigt – ausdrucken und sicher
+  verwahren. Schlüsseldatei und Befunde gehören gemeinsam in die Datensicherung.
+- Nicht verschlüsselt werden Einstellungen, PDFs und GDT-Austauschdateien. FileVault (macOS) bzw. BitLocker (Windows)
+  bleibt empfohlen; das Archiv gehört in das Backup-Konzept der Praxis (DSGVO).
 - Einstellungen lassen sich exportieren und importieren, z. B. für einen zweiten Arbeitsplatz.
 - **Mehrere Arbeitsplätze:** Unter Einstellungen → „Mehrplatz & Updates“ kann ein gemeinsames Profil
   (`echobefund-profil.json`, z. B. auf dem Praxis-Server) verbunden werden. Es enthält Befund-Optionen, Normwerte,

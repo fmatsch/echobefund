@@ -1,10 +1,10 @@
-const { app, BrowserWindow, ipcMain, clipboard, dialog, shell, net } = require('electron');
+const { app, BrowserWindow, ipcMain, clipboard, dialog, shell, net, safeStorage } = require('electron');
 const path = require('node:path');
 const os = require('node:os');
 const fs = require('node:fs/promises');
-const crypto = require('node:crypto');
 const gdt = require('./gdt');
 const dicomsr = require('./dicomsr');
+const { ArchiveStore } = require('./archive-store');
 
 // Separater Datenordner, z. B. für Tests oder einen zweiten Arbeitsplatz-Profil.
 if (process.env.ECHOBEFUND_USER_DATA) app.setPath('userData', process.env.ECHOBEFUND_USER_DATA);
@@ -16,6 +16,9 @@ if (!app.requestSingleInstanceLock()) {
 }
 
 let mainWindow = null;
+
+// Herz-Icon für Fenster und (beim Start aus dem Quellcode) das macOS-Dock
+const APP_ICON = path.join(__dirname, '..', 'assets', 'icon.png');
 
 const settingsFile = () => path.join(app.getPath('userData'), 'settings.json');
 
@@ -40,10 +43,32 @@ async function archiveDir() {
   return settings.archiveDir || path.join(app.getPath('userData'), 'archiv');
 }
 
-function recordPath(dir, id) {
-  if (!/^[a-zA-Z0-9-]+$/.test(String(id))) throw new Error('Ungültige Befund-ID');
-  return path.join(dir, `${id}.json`);
-}
+// Archivschlüssel dieses Geräts, geschützt durch das Betriebssystem (macOS-Schlüsselbund, Windows DPAPI)
+const deviceKeyDir = () => path.join(app.getPath('userData'), 'schluessel');
+const deviceKeys = {
+  available: () => safeStorage.isEncryptionAvailable(),
+  async get(name) {
+    try {
+      const encrypted = await fs.readFile(path.join(deviceKeyDir(), name));
+      return Buffer.from(safeStorage.decryptString(encrypted), 'base64');
+    } catch {
+      return null;
+    }
+  },
+  async set(name, key) {
+    await fs.mkdir(deviceKeyDir(), { recursive: true });
+    await writeFileAtomic(path.join(deviceKeyDir(), name), safeStorage.encryptString(Buffer.from(key).toString('base64')));
+  },
+  async remove(name) {
+    await fs.unlink(path.join(deviceKeyDir(), name)).catch(() => {});
+  },
+};
+
+const archive = new ArchiveStore({
+  getDir: archiveDir,
+  device: deviceKeys,
+  trash: (file) => shell.trashItem(file), // in den Papierkorb statt endgültig löschen
+});
 
 function showWindow() {
   if (!mainWindow) return;
@@ -59,6 +84,7 @@ function createWindow() {
     minWidth: 1000,
     minHeight: 700,
     title: 'Echobefund',
+    icon: APP_ICON,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -302,40 +328,20 @@ ipcMain.handle('archive:chooseDir', async (e) => {
   return canceled || !filePaths.length ? null : filePaths[0];
 });
 
-ipcMain.handle('archive:list', async () => {
-  const dir = await archiveDir();
-  let names = [];
-  try {
-    names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json'));
-  } catch {
-    return [];
-  }
-  const records = await Promise.all(names.map((n) => readJson(path.join(dir, n), null)));
-  return records
-    .filter((r) => r && r.id)
-    .map(({ id, patient, created, updated }) => ({ id, patient, created, updated }))
-    .sort((a, b) => String(b.updated).localeCompare(String(a.updated)));
-});
+// Ist das Archiv verschlüsselt und gesperrt, werfen diese Aufrufe „ARCHIVE_LOCKED“ – die Oberfläche fragt dann nach Passwort/Code.
+ipcMain.handle('archive:list', () => archive.list());
+ipcMain.handle('archive:load', (_e, id) => archive.load(id));
+ipcMain.handle('archive:save', (_e, record) => archive.save(record));
+ipcMain.handle('archive:delete', (_e, id) => archive.remove(id));
+ipcMain.handle('archive:findPrevious', (_e, query) => archive.findPrevious(query));
 
-ipcMain.handle('archive:load', async (_e, id) => readJson(recordPath(await archiveDir(), id), null));
-
-ipcMain.handle('archive:save', async (_e, record) => {
-  const now = new Date().toISOString();
-  const saved = {
-    ...record,
-    id: record.id || crypto.randomUUID(),
-    created: record.created || now,
-    updated: now,
-  };
-  await writeJson(recordPath(await archiveDir(), saved.id), saved);
-  return saved;
-});
-
-// In den Papierkorb verschieben statt endgültig zu löschen.
-ipcMain.handle('archive:delete', async (_e, id) => {
-  await shell.trashItem(recordPath(await archiveDir(), id));
-  return true;
-});
+// ---------- Archiv-Verschlüsselung ----------
+ipcMain.handle('archive:security:status', () => archive.status());
+ipcMain.handle('archive:security:enable', (_e, opts) => archive.enable(opts));
+ipcMain.handle('archive:security:unlock', (_e, opts) => archive.unlock(opts));
+ipcMain.handle('archive:security:setPassword', (_e, opts) => archive.setPassword(opts));
+ipcMain.handle('archive:security:renewRecovery', () => archive.renewRecoveryCode());
+ipcMain.handle('archive:security:disable', () => archive.disable());
 
 // ---------- Zwischenablage, PDF, Druck ----------
 ipcMain.handle('clipboard:write', (_e, text) => clipboard.writeText(String(text)));
@@ -360,35 +366,6 @@ ipcMain.handle('pdf:export', async (e, defaultName) => {
 ipcMain.handle('print', (e) =>
   new Promise((resolve) => e.sender.print({ printBackground: true }, (ok) => resolve(ok)))
 );
-
-// ---------- Vorbefund ----------
-// Sucht den letzten archivierten Befund desselben Patienten (Patientennummer, sonst Name + Geburtsdatum).
-ipcMain.handle('archive:findPrevious', async (_e, query) => {
-  const dir = await archiveDir();
-  let names;
-  try {
-    names = (await fs.readdir(dir)).filter((n) => n.endsWith('.json'));
-  } catch {
-    return null;
-  }
-  const norm = (s) => String(s || '').trim().toLowerCase();
-  const p = (query && query.patient) || {};
-  const matches = (rp) => {
-    if (norm(p.patId) && norm(rp.patId)) return norm(p.patId) === norm(rp.patId);
-    return !!(norm(p.name) && p.geburtsdatum && norm(p.name) === norm(rp.name)
-      && norm(p.vorname) === norm(rp.vorname) && p.geburtsdatum === rp.geburtsdatum);
-  };
-  let best = null;
-  for (const n of names) {
-    const r = await readJson(path.join(dir, n), null);
-    if (!r || !r.id || r.id === query.excludeId || !matches(r.patient || {})) continue;
-    const d = (r.patient && r.patient.datum) || '';
-    if (query.beforeDate && d > query.beforeDate) continue;
-    const bd = best ? best.patient.datum || '' : '';
-    if (!best || d > bd || (d === bd && String(r.updated) > String(best.updated))) best = r;
-  }
-  return best && { id: best.id, datum: best.patient.datum, patient: best.patient, values: best.values, assess: best.assess, reportText: best.reportText };
-});
 
 // ---------- DICOM-SR-Import ----------
 ipcMain.handle('sr:import', async (e) => {
@@ -508,6 +485,7 @@ app.on('second-instance', () => {
 });
 
 app.whenReady().then(() => {
+  if (process.platform === 'darwin' && app.dock) app.dock.setIcon(APP_ICON);
   createWindow();
   restartGdt();
   setTimeout(async () => {

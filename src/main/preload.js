@@ -13,6 +13,12 @@ contextBridge.exposeInMainWorld('api', {
   saveRecord: (r) => ipcRenderer.invoke('archive:save', r),
   deleteRecord: (id) => ipcRenderer.invoke('archive:delete', id),
   findPrevious: (query) => ipcRenderer.invoke('archive:findPrevious', query),
+  archiveSecurityStatus: () => ipcRenderer.invoke('archive:security:status'),
+  archiveEnable: (opts) => ipcRenderer.invoke('archive:security:enable', opts),
+  archiveUnlock: (opts) => ipcRenderer.invoke('archive:security:unlock', opts),
+  archiveSetPassword: (opts) => ipcRenderer.invoke('archive:security:setPassword', opts),
+  archiveRenewRecovery: () => ipcRenderer.invoke('archive:security:renewRecovery'),
+  archiveDisable: () => ipcRenderer.invoke('archive:security:disable'),
 
   copyText: (t) => ipcRenderer.invoke('clipboard:write', t),
   exportPdf: (name) => ipcRenderer.invoke('pdf:export', name),

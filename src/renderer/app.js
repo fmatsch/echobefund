@@ -321,7 +321,12 @@
       if (state.previous) { state.previous = null; refresh(false); }
       return;
     }
-    const prev = await api.findPrevious({ patient: p, excludeId: state.id, beforeDate: p.datum });
+    let prev = null;
+    try {
+      prev = await api.findPrevious({ patient: p, excludeId: state.id, beforeDate: p.datum });
+    } catch {
+      prev = null; // gesperrtes Archiv: kein Vergleich, keine Rückfrage beim Tippen
+    }
     if (seq !== prevSeq) return; // inzwischen neue Suche gestartet
     state.previous = prev || null;
     refresh(false);
@@ -611,6 +616,20 @@
     lookupPrevious();
   }
 
+  // Archivzugriff; ist das verschlüsselte Archiv gesperrt, wird zuerst nach Passwort bzw. Code gefragt.
+  async function archiveCall(fn) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (!/ARCHIVE_LOCKED/.test(String(err && err.message))) {
+        alert(`Archivfehler: ${window.EchoSecurity.cleanError(err)}`);
+        return null;
+      }
+      if (!(await window.EchoSecurity.unlockFlow(api))) return null;
+      return fn();
+    }
+  }
+
   function confirmDiscard() {
     return !dirty || confirm('Ungespeicherte Änderungen verwerfen?');
   }
@@ -623,10 +642,14 @@
       return;
     }
     state.reportText = $('#report').value;
-    const saved = await api.saveRecord({
+    const saved = await archiveCall(() => api.saveRecord({
       id: state.id, created: state.created, patient: p, values: state.values, assess: state.assess,
       manual: state.manual, modules: state.modules, reportText: state.reportText, gdt: state.gdt,
-    });
+    }));
+    if (!saved) {
+      toast('Archiv gesperrt – der Befund wurde nicht gespeichert');
+      return;
+    }
     state.id = saved.id;
     state.created = saved.created;
     if (p.untersucher && p.untersucher !== settings.lastExaminer) {
@@ -656,7 +679,8 @@
     const list = $('#archive-list');
     const search = $('#archive-search');
     $('#archive-path').textContent = await api.archiveDir();
-    let records = await api.listRecords();
+    let records = await archiveCall(() => api.listRecords());
+    if (!records) return;
 
     const render = () => {
       const q = search.value.trim().toLowerCase();
@@ -690,7 +714,7 @@
 
     async function openRecord(id) {
       if (!confirmDiscard()) return;
-      const rec = await api.loadRecord(id);
+      const rec = await archiveCall(() => api.loadRecord(id));
       if (!rec) { toast('Befund konnte nicht geladen werden'); return; }
       state = stateFromRecord(rec);
       loadIntoUI();
@@ -907,6 +931,9 @@
     $('#gdt-badge').onclick = () => api.openGuide($('#gdt-badge').dataset.anchor);
     const initial = await api.gdtReady();
     if (initial) { gdtStatus = initial; updateGdtUI(); }
+    // Verschlüsseltes, gesperrtes Archiv: gleich beim Start entsperren lassen (kann übersprungen werden)
+    const security = await api.archiveSecurityStatus().catch(() => null);
+    if (security && security.encrypted && !security.unlocked && (await window.EchoSecurity.unlockFlow(api))) lookupPrevious();
   }
 
   init();

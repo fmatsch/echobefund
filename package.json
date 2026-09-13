@@ -34,7 +34,8 @@
       "artifactName": "Echobefund-mac-universal.${ext}",
       "category": "public.app-category.medical",
       "icon": "build/icon.png",
-      "identity": null
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "afterPack": "scripts/after-pack.js",
     "win": {

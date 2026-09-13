@@ -142,7 +142,8 @@
           )),
         h('section', {},
           h('h4', {}, 'Archiv'),
-          h('p', { class: 'note' }, 'Befunde werden als JSON-Dateien gespeichert. Bitte Festplattenverschlüsselung (FileVault/BitLocker) aktivieren. Beim Ändern des Ordners werden vorhandene Befunde nicht verschoben.'),
+          h('p', { class: 'note' }, 'Befunde werden als Dateien im Archiv-Ordner gespeichert. Die Verschlüsselung schützt sie auch in Datensicherungen und auf dem Server; zusätzlich ist Festplattenverschlüsselung (FileVault/BitLocker) empfohlen. Beim Ändern des Ordners werden vorhandene Befunde nicht verschoben.'),
+          securityBlock(),
           h('div', { class: 'form-grid' },
             'Speicherort', h('div', {}, archivePath, ' ',
               h('button', { onclick: async () => { const d = await api.chooseArchiveDir(); if (d) { draft.archiveDir = d; archivePath.textContent = d; } } }, 'Ändern…'),
@@ -157,6 +158,41 @@
             h('button', { onclick: async () => { const s = await api.importSettings(); if (s) { draft = merge(s); renderBody(); } } }, 'Importieren…'),
           )),
       );
+    }
+
+    // Status und Aktionen der Archiv-Verschlüsselung (wirken sofort, unabhängig von „Speichern“)
+    function securityBlock() {
+      const box = h('div', { class: 'security-box' });
+      const S = window.EchoSecurity;
+      const render = async () => {
+        box.textContent = 'Prüfe Verschlüsselung …';
+        let st;
+        try {
+          st = await api.archiveSecurityStatus();
+        } catch (err) {
+          box.textContent = `Status nicht lesbar: ${S.cleanError(err)}`;
+          return;
+        }
+        const after = (flow) => async () => { await flow(api); render(); };
+        const buttons = st.encrypted
+          ? [
+            h('button', { onclick: after(S.passwordFlow) }, st.hasPassword ? 'Passwort ändern …' : 'Passwort festlegen …'),
+            h('button', { onclick: after(S.renewRecoveryFlow) }, 'Neuer Wiederherstellungscode …'),
+            h('button', { onclick: after(S.disableFlow) }, 'Verschlüsselung ausschalten …'),
+          ]
+          : [h('button', { class: 'primary', onclick: after(S.enableFlow) }, 'Archiv verschlüsseln …')];
+        if (st.encrypted && !st.unlocked) buttons.unshift(h('button', { class: 'primary', onclick: after(S.unlockFlow) }, 'Entsperren …'));
+        box.textContent = '';
+        box.append(
+          h('div', { class: `security-status ${st.encrypted ? 'on' : 'off'}` }, `${st.encrypted ? '🔒' : '🔓'} Befundarchiv ${S.statusText(st)}`),
+          h('div', { class: 'row' }, buttons),
+        );
+        if (draft.archiveDir !== current.archiveDir) {
+          box.append(h('p', { class: 'note' }, 'Gilt für den bisher gespeicherten Archiv-Ordner – eine Ordneränderung bitte zuerst speichern.'));
+        }
+      };
+      render();
+      return box;
     }
 
     function resetButton(label, key) {

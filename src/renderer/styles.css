@@ -36,7 +36,13 @@ input.invalid { border-color: var(--accent); background: var(--accent-soft); }
 
 .banner { display: flex; align-items: center; gap: 8px; padding: 8px 14px; background: var(--auto-soft); border-bottom: 1px solid #b9d2ec; color: #1b4a7a; font-weight: 600; }
 .banner[hidden] { display: none; }
-.gdt-badge { font-size: 11px; color: var(--auto); border: 1px solid #b9d2ec; border-radius: 10px; padding: 1px 8px; }
+.gdt-badge { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; font-weight: 600; border-radius: 10px; padding: 2px 10px 2px 8px; cursor: help; }
+.gdt-badge::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+.gdt-badge.ok { color: #1f7a4d; background: #e4f4ec; border-color: #b6dfc8; }
+.gdt-badge.warn { color: #8a5a00; background: #fff4dc; border-color: #f0d596; }
+.gdt-badge.err { color: #b3263a; background: var(--accent-soft); border-color: #eab4bd; }
+.gdt-badge.err::before, .gdt-badge.warn::before { animation: pulse 1.6s ease-in-out infinite; }
+@keyframes pulse { 50% { opacity: .3; } }
 .gdt-badge[hidden] { display: none; }
 #btn-gdt-send { width: 100%; padding: 8px; background: var(--auto); border-color: var(--auto); }
 #btn-gdt-send[hidden] { display: none; }

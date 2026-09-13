@@ -121,6 +121,7 @@
               h('button', { onclick: () => { g.pdfDir = ''; pdfDirLabel.textContent = 'wie Austauschordner'; } }, 'Zurücksetzen')),
             'Nach dem Senden archivieren', checkbox(g.autoSave, (v) => { g.autoSave = v; }),
             'Nach dem Senden minimieren', checkbox(g.minimizeAfterSend, (v) => { g.minimizeAfterSend = v; }),
+            'Warnung „nicht abgeholt“ nach (Sekunden)', h('input', { type: 'number', min: 30, max: 3600, value: g.pickupWarnSeconds, oninput: (e) => { g.pickupWarnSeconds = Math.max(30, Number(e.target.value) || 120); } }),
           ),
           h('p', { class: 'note' }, 'Der PDF-Pfad wird so übertragen, wie er auf diesem Rechner lautet. Bei mehreren Arbeitsplätzen einen Netzwerkpfad (z. B. \\\\SERVER\\GDT) verwenden.')),
       );

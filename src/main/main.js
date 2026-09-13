@@ -76,10 +76,34 @@ function createWindow() {
 // ---------- GDT (Praxissoftware, z. B. EOSWIN) ----------
 
 const GDT_POLL_MS = 1500;
+const DIR_TIMEOUT_MS = 5000;
 let gdtTimer = null;
 let gdtBusy = false;
 let rendererReady = false;
 const gdtQueue = [];
+let gdtStatus = { state: 'off' };
+
+function setGdtStatus(status) {
+  if (JSON.stringify(status) === JSON.stringify(gdtStatus)) return;
+  gdtStatus = status;
+  if (rendererReady && mainWindow) mainWindow.webContents.send('gdt:status', gdtStatus);
+}
+
+// Netzlaufwerke können bei Serverausfall lange hängen: nach `ms` als nicht erreichbar werten.
+// Der hängende Aufruf blockiert weitere Abfragen (gdtBusy), bis Windows ihn selbst beendet.
+async function readdirWithTimeout(dir, ms) {
+  const pending = fs.readdir(dir);
+  let timer;
+  const timeout = new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('Zeitüberschreitung')), ms); });
+  try {
+    return await Promise.race([pending, timeout]);
+  } catch (err) {
+    await pending.catch(() => {});
+    throw err;
+  } finally {
+    clearTimeout(timer);
+  }
+}
 
 async function gdtConfig() {
   const settings = await readJson(settingsFile(), {});
@@ -97,14 +121,33 @@ async function pollGdt() {
   gdtBusy = true;
   try {
     const cfg = await gdtConfig();
-    if (!cfg.enabled || !cfg.dir) return;
-    const pattern = gdt.incomingPattern(cfg.ownShort, cfg.pvsShort);
-    let names;
-    try {
-      names = (await fs.readdir(cfg.dir)).filter((n) => pattern.test(n));
-    } catch {
-      return; // Ordner (noch) nicht erreichbar, z. B. Netzlaufwerk getrennt
+    if (!cfg.enabled || !cfg.dir) {
+      setGdtStatus(gdt.evaluateStatus({ enabled: cfg.enabled, dir: cfg.dir }));
+      return;
     }
+    let allNames;
+    try {
+      allNames = await readdirWithTimeout(cfg.dir, DIR_TIMEOUT_MS);
+    } catch {
+      // Ordner nicht erreichbar, z. B. Server aus oder Netzlaufwerk getrennt
+      setGdtStatus(gdt.evaluateStatus({ enabled: true, dir: cfg.dir, dirReadable: false }));
+      return;
+    }
+    const outPattern = gdt.outgoingPattern(cfg.ownShort, cfg.pvsShort);
+    const outgoing = (await Promise.all(allNames.filter((n) => outPattern.test(n)).map(async (n) => {
+      const stat = await fs.stat(path.join(cfg.dir, n)).catch(() => null);
+      return stat && { name: n, mtime: stat.mtimeMs };
+    }))).filter(Boolean);
+    setGdtStatus(gdt.evaluateStatus({
+      enabled: true,
+      dir: cfg.dir,
+      dirReadable: true,
+      outgoing,
+      warnMs: (Number(cfg.pickupWarnSeconds) || 120) * 1000,
+    }));
+
+    const pattern = gdt.incomingPattern(cfg.ownShort, cfg.pvsShort);
+    const names = allNames.filter((n) => pattern.test(n));
     const files = await Promise.all(names.map(async (n) => {
       const file = path.join(cfg.dir, n);
       const stat = await fs.stat(file).catch(() => null);
@@ -146,6 +189,13 @@ const safeName = (s) => String(s || '').replace(/[^\p{L}\p{N}_-]+/gu, '-').repla
 ipcMain.handle('gdt:ready', () => {
   rendererReady = true;
   deliverGdt();
+  return gdtStatus;
+});
+
+// Öffnet die Online-Anleitung im Standardbrowser (nur diese Adresse, nur einfache Sprungmarken).
+ipcMain.handle('open:guide', (_e, anchor) => {
+  const hash = /^[a-z0-9-]{1,40}$/i.test(String(anchor || '')) ? `#${anchor}` : '';
+  return shell.openExternal(`https://fmatsch.github.io/echobefund/anleitung/${hash}`);
 });
 
 ipcMain.handle('gdt:checkDir', async (_e, dir) => {

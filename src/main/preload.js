@@ -21,4 +21,6 @@ contextBridge.exposeInMainWorld('api', {
   gdtReady: () => ipcRenderer.invoke('gdt:ready'),
   gdtSend: (data) => ipcRenderer.invoke('gdt:send', data),
   gdtCheckDir: (dir) => ipcRenderer.invoke('gdt:checkDir', dir),
+  onGdtStatus: (cb) => ipcRenderer.on('gdt:status', (_e, status) => cb(status)),
+  openGuide: (anchor) => ipcRenderer.invoke('open:guide', anchor),
 });

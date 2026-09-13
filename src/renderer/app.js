@@ -296,15 +296,45 @@
   // ---------- Praxissoftware (GDT) ----------
 
   let pendingGdt = null;
+  let gdtStatus = { state: 'off' };
+
+  // Ampel: Zustand aus dem Hauptprozess → Farbe, Text, Hinweis, Sprungmarke in der Anleitung
+  function statusView(status, g) {
+    const name = g.pvsName || 'Praxissoftware';
+    const time = (ms) => new Date(ms).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' });
+    switch (status.state) {
+      case 'unconfigured':
+        return { cls: 'err', text: 'GDT: kein Ordner', anchor: 'teil3',
+          tip: 'Kein Austauschordner eingestellt. Einstellungen → Praxissoftware (GDT) → Austauschordner wählen.' };
+      case 'unreachable':
+        return { cls: 'err', text: 'GDT-Ordner nicht erreichbar', anchor: 'p-ordner',
+          tip: `Der Austauschordner ${g.dir} ist nicht erreichbar – z. B. Server ausgeschaltet, Netzwerk getrennt oder Ordner gelöscht. Aufträge aus ${name} kommen so nicht an. Klicken für Hilfe.` };
+      case 'waiting':
+        return { cls: 'warn', text: 'Befund wartet auf Abholung', anchor: 'p-abholung',
+          tip: `Der gesendete Befund (${status.file}) liegt seit ${time(status.since)} Uhr im Austauschordner und wurde von ${name} noch nicht abgeholt. Klicken für Hilfe.` };
+      case 'ok':
+        return { cls: 'ok', text: `GDT: ${name}`, anchor: 'alltag',
+          tip: `Verbunden: Austauschordner ${g.dir} ist erreichbar, keine Befunde warten auf Abholung.` };
+      default:
+        return null;
+    }
+  }
 
   function updateGdtUI() {
     const g = settings.gdt;
     const name = g.pvsName || 'Praxissoftware';
     $('#btn-gdt-send').hidden = !g.enabled;
     $('#btn-gdt-send').textContent = `An ${name} senden`;
-    $('#gdt-badge').hidden = !g.enabled;
-    $('#gdt-badge').textContent = g.dir ? `GDT: ${name}` : 'GDT: kein Ordner';
-    $('#gdt-badge').title = g.dir || 'Einstellungen → Praxissoftware (GDT)';
+    const badge = $('#gdt-badge');
+    // Bis der erste Status eintrifft, den Zustand aus den Einstellungen annehmen
+    const status = !g.enabled ? { state: 'off' } : gdtStatus.state === 'off' ? { state: g.dir ? 'ok' : 'unconfigured' } : gdtStatus;
+    const view = statusView(status, g);
+    badge.hidden = !view;
+    if (!view) return;
+    badge.className = `gdt-badge ${view.cls}`;
+    badge.textContent = view.text;
+    badge.title = view.tip;
+    badge.dataset.anchor = view.anchor;
   }
 
   function handleGdtRequest(req) {
@@ -485,7 +515,10 @@
     loadIntoUI();
     updateGdtUI();
     api.onGdtRequest(handleGdtRequest);
-    api.gdtReady();
+    api.onGdtStatus((s) => { gdtStatus = s; updateGdtUI(); });
+    $('#gdt-badge').onclick = () => api.openGuide($('#gdt-badge').dataset.anchor);
+    const initial = await api.gdtReady();
+    if (initial) { gdtStatus = initial; updateGdtUI(); }
   }
 
   init();

@@ -1,0 +1,71 @@
+# Baut macOS-App und Windows-EXE auf einem GitHub-Mac und veröffentlicht sie als Release.
+# Vorher: Version in package.json erhöhen, committen, pushen.
+# Start: GitHub → Actions → „Release bauen und veröffentlichen“ → Run workflow (Tag = v + Version).
+name: Release bauen und veröffentlichen
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release-Tag, muss zur Version in package.json passen (z. B. v0.3.0)
+        required: true
+      notes:
+        description: Kurze Beschreibung der Änderungen
+        required: false
+        default: Siehe README.
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+      NOTES: ${{ inputs.notes }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tag passt zur Version in package.json
+        run: |
+          VERSION="v$(node -p "require('./package.json').version")"
+          if [ "$VERSION" != "$TAG" ]; then echo "::error::Tag $TAG passt nicht zu package.json ($VERSION)"; exit 1; fi
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: macOS-App und Windows-EXE bauen
+        run: npx electron-builder --mac --win --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Ergebnisse prüfen
+        run: |
+          codesign --verify --deep --strict dist/mac-universal/Echobefund.app
+          lipo -archs dist/mac-universal/Echobefund.app/Contents/MacOS/Echobefund
+          file dist/Echobefund-windows-portable.exe | grep -q "PE32"
+          cd dist && shasum -a 256 Echobefund-mac-universal.zip Echobefund-windows-portable.exe | tee SHA256SUMS.txt
+
+      - name: Release anlegen (falls noch nicht vorhanden)
+        run: |
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" --target "$GITHUB_SHA" --title "Echobefund ${TAG#v}" --notes "$NOTES" --draft
+          fi
+
+      - name: Dateien hochladen und veröffentlichen
+        run: |
+          cd dist
+          gh release upload "$TAG" \
+            "Echobefund-mac-universal.zip#macOS (Intel & Apple Silicon)" \
+            "Echobefund-windows-portable.exe#Windows (64 Bit, portabel)" \
+            "SHA256SUMS.txt#SHA-256-Prüfsummen" --clobber
+          gh release edit "$TAG" --draft=false --latest

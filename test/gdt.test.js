@@ -87,3 +87,26 @@ test('Dateinamen: eingehend, fest und hochzählend', () => {
   assert.equal(gdt.outgoingName('ECHO', 'EDV1', 'fixed', ['edv1echo.gdt']), null);
   assert.equal(gdt.outgoingName('ECHO', 'EDV1', 'counter', ['EDV1ECHO.001', 'EDV1ECHO.002', 'ECHOEDV1.009']), 'EDV1ECHO.003');
 });
+
+test('Ausgehende Dateien erkennen (für die Abhol-Warnung)', () => {
+  const re = gdt.outgoingPattern('ECHO', 'EOSW');
+  assert.ok(re.test('EOSWECHO.GDT'));
+  assert.ok(re.test('eoswecho.012'));
+  assert.ok(!re.test('ECHOEOSW.GDT'));
+});
+
+test('Ampel-Status: aus, ohne Ordner, nicht erreichbar, wartet, ok', () => {
+  const now = 1_000_000;
+  assert.deepEqual(gdt.evaluateStatus({ enabled: false }), { state: 'off' });
+  assert.deepEqual(gdt.evaluateStatus({ enabled: true, dir: '' }), { state: 'unconfigured' });
+  assert.deepEqual(gdt.evaluateStatus({ enabled: true, dir: 'C:\\GDT', dirReadable: false }), { state: 'unreachable' });
+  // frisch gesendet → noch keine Warnung
+  assert.deepEqual(gdt.evaluateStatus({ enabled: true, dir: 'C:\\GDT', dirReadable: true, outgoing: [{ name: 'EOSWECHO.GDT', mtime: now - 60_000 }], now }), { state: 'ok' });
+  // länger als 2 Minuten liegen geblieben → gelb, älteste Datei wird genannt
+  assert.deepEqual(
+    gdt.evaluateStatus({ enabled: true, dir: 'C:\\GDT', dirReadable: true, outgoing: [{ name: 'EOSWECHO.002', mtime: now - 130_000 }, { name: 'EOSWECHO.001', mtime: now - 300_000 }], now }),
+    { state: 'waiting', file: 'EOSWECHO.001', since: now - 300_000 },
+  );
+  // eigene Wartezeit
+  assert.equal(gdt.evaluateStatus({ enabled: true, dir: 'x', dirReadable: true, outgoing: [{ name: 'a', mtime: now - 40_000 }], now, warnMs: 30_000 }).state, 'waiting');
+});

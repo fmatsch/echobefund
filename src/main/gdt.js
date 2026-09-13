@@ -267,7 +267,26 @@ function outgoingName(ownShort, pvsShort, mode, existing) {
   return next > 999 ? null : `${base}.${String(next).padStart(3, '0')}`;
 }
 
+// Dateien, die wir an die EDV geschickt haben: <Empfänger=EDV><Sender=wir>.GDT oder .001–.999
+function outgoingPattern(ownShort, pvsShort) {
+  return incomingPattern(pvsShort, ownShort);
+}
+
+// ---------- Verbindungsstatus ----------
+
+// Liefert den Zustand für die Ampel-Anzeige.
+// outgoing: [{ name, mtime }] noch nicht abgeholte Befunddateien im Austauschordner.
+// state: 'off' | 'unconfigured' | 'unreachable' | 'waiting' | 'ok'
+function evaluateStatus({ enabled, dir, dirReadable, outgoing = [], now = Date.now(), warnMs = 120000 }) {
+  if (!enabled) return { state: 'off' };
+  if (!dir) return { state: 'unconfigured' };
+  if (!dirReadable) return { state: 'unreachable' };
+  const stale = outgoing.filter((f) => now - f.mtime >= warnMs).sort((a, b) => a.mtime - b.mtime);
+  if (stale.length) return { state: 'waiting', file: stale[0].name, since: Math.round(stale[0].mtime) };
+  return { state: 'ok' };
+}
+
 module.exports = {
   CHARSETS, encode, decode, encodeLine, buildRecord, parse, toRequest, wrapText, buildResult,
-  incomingPattern, outgoingName, gdtDateToIso, isoToGdtDate, CP437_HIGH,
+  incomingPattern, outgoingPattern, outgoingName, evaluateStatus, gdtDateToIso, isoToGdtDate, CP437_HIGH,
 };

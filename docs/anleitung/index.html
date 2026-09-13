@@ -42,6 +42,11 @@
     .box.warn { background: var(--warn-soft); border-color: var(--warn); }
     .box.info { background: var(--blue-soft); border-color: var(--blue); }
     .box .title { font-weight: 700; }
+    .ampel { display: inline-flex; align-items: center; gap: 6px; font-size: .82rem; font-weight: 600; border-radius: 12px; padding: 2px 10px 2px 8px; white-space: nowrap; }
+    .ampel::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+    .ampel.ok { color: #1f7a4d; background: #e4f4ec; }
+    .ampel.warn { color: #8a5a00; background: #fff4dc; }
+    .ampel.err { color: #b3263a; background: #fbe9ec; }
     figure { margin: 16px 0 22px; }
     figure img { display: block; max-width: 100%; height: auto; border: 1px solid var(--line); border-radius: 10px; box-shadow: 0 8px 26px rgba(20, 28, 40, .10); background: #fff; }
     figure.narrow img { max-width: 380px; width: 100%; }
@@ -202,10 +207,21 @@
       <img src="01-einstellungen-gdt.png" alt="Einstellungsfenster von Echobefund, Reiter Praxissoftware (GDT), mit aktivierter Anbindung und Austauschordner C:\GDT" loading="lazy" width="1000" height="768">
       <figcaption>So sieht der Reiter „Praxissoftware (GDT)“ nach dem Einstellen aus. Wichtig ist die Zeile unter „Dateiendung“: Sie zeigt die beiden Dateinamen, die Sie gleich in EOSWIN brauchen.</figcaption>
     </figure>
-    <p>Nach dem Speichern sehen Sie oben neben dem Programmnamen die Markierung <span class="ui">GDT: EOSWIN</span>. Daran erkennen Sie, dass die Verbindung eingeschaltet ist.</p>
+    <p>Nach dem Speichern sehen Sie oben neben dem Programmnamen eine farbige Markierung – eine kleine <strong>Ampel</strong> für die Verbindung. Sie wird laufend aktualisiert:</p>
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Anzeige</th><th>Bedeutung</th><th>Was tun?</th></tr></thead>
+        <tbody>
+          <tr><td><span class="ampel ok">GDT: EOSWIN</span></td><td>Alles in Ordnung: Der Austauschordner ist erreichbar, kein Befund wartet.</td><td>Nichts.</td></tr>
+          <tr><td><span class="ampel warn">Befund wartet auf Abholung</span></td><td>Ein gesendeter Befund liegt seit über 2 Minuten im Ordner, EOSWIN hat ihn noch nicht übernommen.</td><td>Siehe <a href="#p-abholung">Problemlösung</a>.</td></tr>
+          <tr><td><span class="ampel err">GDT-Ordner nicht erreichbar</span></td><td>Der Austauschordner fehlt – z. B. Server aus, Netzwerk getrennt. Aufträge aus EOSWIN kommen nicht an.</td><td>Siehe <a href="#p-ordner">Problemlösung</a>.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p>Wenn Sie mit der Maus über die Markierung fahren, erscheint eine kurze Erklärung. Ein Klick darauf öffnet die passende Stelle dieser Anleitung.</p>
     <figure>
       <img src="00-toolbar.png" alt="Obere Leiste von Echobefund mit der Markierung GDT: EOSWIN" loading="lazy" width="1400" height="44">
-      <figcaption>Die blaue Markierung „GDT: EOSWIN“ zeigt: Echobefund wartet auf Aufträge aus EOSWIN.</figcaption>
+      <figcaption>Die grüne Markierung „GDT: EOSWIN“ zeigt: Die Verbindung ist eingeschaltet und der Austauschordner erreichbar.</figcaption>
     </figure>
 
     <!-- ===================================================== -->
@@ -339,6 +355,10 @@ Vielen Dank und freundliche Grüße</div>
       <li>Text bei Bedarf direkt im Textfeld anpassen.</li>
       <li><span class="ui">An EOSWIN senden</span> – fertig. Der Befund wird zusätzlich im Echobefund-Archiv gespeichert.</li>
     </ol>
+    <div class="box tip">
+      <p class="title">Ein Blick auf die Ampel genügt</p>
+      <p>Grün oben neben „Echobefund“ heißt: Verbindung in Ordnung. Gelb oder rot: mit der Maus darüberfahren oder draufklicken – dann sehen Sie, was los ist.</p>
+    </div>
 
     <h3>Was bedeutet der blaue Balken oben?</h3>
     <p>Wenn Sie in Echobefund gerade etwas eingegeben, aber noch nicht gesendet oder gespeichert haben, und in EOSWIN schon den nächsten Patienten aufrufen, überschreibt Echobefund Ihre Eingaben <strong>nicht</strong> einfach. Stattdessen erscheint oben dieser Balken:</p>
@@ -368,8 +388,8 @@ Vielen Dank und freundliche Grüße</div>
       </ol>
     </details>
 
-    <details>
-      <summary>Beim Senden erscheint „Die vorherige Befunddatei wurde von der Praxissoftware noch nicht abgeholt“</summary>
+    <details id="p-abholung">
+      <summary>Oben steht gelb „Befund wartet auf Abholung“ – oder beim Senden erscheint „… noch nicht abgeholt“</summary>
       <p>Echobefund überschreibt zur Sicherheit nie einen Befund, den EOSWIN noch nicht eingelesen hat. Öffnen Sie in EOSWIN die Kartei bzw. lösen Sie den Import aus, damit EOSWIN die Datei <code>EOSWECHO.GDT</code> abholt – danach erneut senden.</p>
       <p>Bleibt die Meldung dauerhaft, holt EOSWIN die Datei nicht ab. Meist stimmt dann der Name der Importdatei in EOSWIN nicht (muss <code>EOSWECHO.GDT</code> sein) oder der Ordner ist ein anderer.</p>
     </details>
@@ -384,8 +404,9 @@ Vielen Dank und freundliche Grüße</div>
       <p>In Echobefund unter <span class="ui">Befundtext als</span> von <span class="ui">Ergebnistext formatiert (6228)</span> auf <span class="ui">Befund (6220)</span> umstellen (oder umgekehrt) und erneut testen. Wenn Zeilen zu kurz umbrechen, kann die <span class="ui">Max. Zeilenlänge</span> erhöht werden, z. B. auf 80 – nur ändern, wenn EOSWIN das problemlos anzeigt.</p>
     </details>
 
-    <details>
-      <summary>„Testen“ zeigt „✗“ statt „✓ Ordner ist beschreibbar“</summary>
+    <details id="p-ordner">
+      <summary>Oben steht rot „GDT-Ordner nicht erreichbar“ – oder „Testen“ zeigt „✗“</summary>
+      <p><strong>Liegt der Ordner auf dem Praxis-Server</strong> (z. B. <code>\\SERVER\GDT</code>): Ist der Server eingeschaltet? Funktioniert EOSWIN an diesem Computer? Öffnen Sie den Ordner testweise im Explorer. Sobald er wieder erreichbar ist, wird die Markierung nach wenigen Sekunden von selbst grün.</p>
       <p>Der Ordner existiert nicht oder Windows erlaubt dort kein Schreiben. Legen Sie den Ordner wie in <a href="#teil2">Teil 2</a> beschrieben an und wählen Sie ihn erneut über <span class="ui">Wählen…</span> aus. Bei einem Netzwerkordner: Ist der Server erreichbar? Sonst den IT-Betreuer fragen.</p>
     </details>
 

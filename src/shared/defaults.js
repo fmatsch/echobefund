@@ -373,6 +373,7 @@
       pdfDir: '',             // leer = Austauschordner
       autoSave: true,         // nach dem Senden im Archiv speichern
       minimizeAfterSend: false,
+      pickupWarnSeconds: 120, // Ampel gelb, wenn ein gesendeter Befund so lange nicht abgeholt wurde
     },
     norms: NORMS,
     templates: TEMPLATES,

@@ -75,6 +75,18 @@ Satzart 6311 („Untersuchung zeigen“) öffnet das Archiv gefiltert auf die Pa
 Die genauen Menüpunkte und Feldnamen in EOSWIN können abweichen – im Zweifel den MCW-Support
 nach „GDT-Geräteanbindung“ fragen und die Kennungen von oben durchgeben.
 
+## Neue Version veröffentlichen
+
+Gebaut und hochgeladen wird auf GitHub – große Uploads vom eigenen Rechner sind nicht nötig.
+
+1. Version in `package.json` erhöhen (z. B. `0.3.0`), committen und pushen.
+2. GitHub → **Actions** → **Release bauen und veröffentlichen** → **Run workflow**.
+3. Tag eintragen (`v` + Version, z. B. `v0.3.0`) und kurz beschreiben, was neu ist.
+
+Der Workflow führt die Tests aus, baut macOS-App und Windows-EXE, prüft Signatur und Architekturen,
+erzeugt `SHA256SUMS.txt` und veröffentlicht das Release. Die Download-Links auf der Webseite zeigen
+automatisch auf die neueste Version.
+
 ## Aufbau
 
 | Pfad | Inhalt |

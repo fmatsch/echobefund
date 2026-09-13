@@ -1,0 +1,54 @@
+# Baut die universelle macOS-App auf einem GitHub-Mac und lädt sie in ein bestehendes Release.
+# Start: GitHub → Actions → „macOS-App ins Release laden“ → Run workflow (Tag angeben).
+name: macOS-App ins Release laden
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Release-Tag (z. B. v0.2.0)
+        required: true
+        default: v0.2.0
+
+permissions:
+  contents: write
+
+jobs:
+  mac:
+    runs-on: macos-latest
+    env:
+      GH_TOKEN: ${{ github.token }}
+      TAG: ${{ inputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Abhängigkeiten installieren
+        run: npm ci
+
+      - name: Tests
+        run: npm test
+
+      - name: macOS-App bauen (universal, ad-hoc signiert)
+        run: npx electron-builder --mac --publish never
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+
+      - name: Signatur und Architekturen prüfen
+        run: |
+          codesign --verify --deep --strict dist/mac-universal/Echobefund.app
+          lipo -archs dist/mac-universal/Echobefund.app/Contents/MacOS/Echobefund
+
+      - name: ZIP ins Release hochladen
+        run: gh release upload "$TAG" "dist/Echobefund-mac-universal.zip#macOS (Intel & Apple Silicon)" --clobber
+
+      - name: Prüfsummen aktualisieren
+        run: |
+          mkdir -p sums && cd sums
+          gh release download "$TAG" --pattern "Echobefund-windows-portable.exe" --pattern "Echobefund-mac-universal.zip"
+          shasum -a 256 Echobefund-mac-universal.zip Echobefund-windows-portable.exe | tee SHA256SUMS.txt
+          gh release upload "$TAG" "SHA256SUMS.txt#SHA-256-Prüfsummen" --clobber
